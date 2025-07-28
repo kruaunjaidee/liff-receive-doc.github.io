@@ -163,7 +163,6 @@
             } catch (error) {
                 console.error('LIFF initialization failed', error);
                 showToast('ไม่สามารถเชื่อมต่อกับ LINE ได้ (กำลังใช้โหมดทดสอบ)', 'info');
-                // For testing without LIFF
                 loadDeliveryHistory();
             }
         }
@@ -190,7 +189,11 @@
         async function loadDeliveryHistory() {
             showToast('กำลังโหลดข้อมูล...', 'info');
             try {
-                const response = await fetch(`${SHEET_URL}?action=getHistory`);
+                const response = await fetch(`${SHEET_URL}?action=getHistory`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
                 historyData = await response.json();
                 historyData.reverse(); // Make newest first
 
@@ -201,7 +204,7 @@
                 showToast('โหลดข้อมูลเรียบร้อย', 'success');
             } catch (error) {
                 console.error('Load history failed', error);
-                showToast('โหลดข้อมูลล้มเหลว', 'error');
+                showToast(`โหลดข้อมูลล้มเหลว: ${error.message}`, 'error');
             }
         }
 
@@ -276,10 +279,13 @@
                 const base64 = signaturePad.toDataURL();
                 showToast('กำลังบันทึกลายเซ็น...', 'info');
                 try {
-                    const response = await fetch(`${SHEET_URL}?action=updateSignature&id=${historyData[index].id}&sig=${encodeURIComponent(base64)}`);
+                    const response = await fetch(`${SHEET_URL}?action=updateSignature&id=${historyData[index].id}&sig=${encodeURIComponent(base64)}`, {
+                        method: 'GET',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
                     const result = await response.json();
                     if (result.success) {
-                        // Update local data
                         historyData[index].signature = base64;
                         updateTable();
                         document.getElementById('detailModal').classList.add('hidden');
@@ -290,7 +296,7 @@
                     }
                 } catch (error) {
                     console.error('Save signature failed', error);
-                    showToast('บันทึกลายเซ็นล้มเหลว', 'error');
+                    showToast(`บันทึกลายเซ็นล้มเหลว: ${error.message}`, 'error');
                 }
             };
         }
@@ -304,8 +310,8 @@
             e.preventDefault();
             showToast('กำลังบันทึก...', 'info');
 
-            const no = document.getElementById('bookNo').value;
-            const topic = document.getElementById('topic').value;
+            const no = document.getElementById('bookNo').value.trim();
+            const topic = document.getElementById('topic').value.trim();
             const activity = document.getElementById('activity').value;
             const teacher = document.getElementById('teacher').value;
             const file = document.getElementById('fileUpload').files[0];
@@ -326,6 +332,9 @@
                     body.mimeType = file.type;
                     await sendInsert(body);
                 };
+                reader.onerror = () => {
+                    showToast('เกิดข้อผิดพลาดในการอ่านไฟล์', 'error');
+                };
                 reader.readAsDataURL(file);
             } else {
                 await sendInsert(body);
@@ -336,9 +345,14 @@
             try {
                 const response = await fetch(SHEET_URL, {
                     method: 'POST',
+                    mode: 'cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(body)
                 });
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP error! Status: ${response.status}, Response: ${errorText}`);
+                }
                 const result = await response.json();
                 if (result.success) {
                     showToast('บันทึกเรียบร้อย', 'success');
@@ -359,14 +373,13 @@
                         }
                     };
                     await liff.shareTargetPicker([{ type: "flex", altText: "แจ้งส่งหนังสือ", contents: flex }]);
-                    // Reload history
                     loadDeliveryHistory();
                 } else {
-                    showToast('บันทึกล้มเหลว', 'error');
+                    showToast(`บันทึกล้มเหลว: ${result.message || 'ไม่ทราบสาเหตุ'}`, 'error');
                 }
             } catch (error) {
                 console.error('Save failed', error);
-                showToast('บันทึกล้มเหลว', 'error');
+                showToast(`บันทึกล้มเหลว: ${error.message}`, 'error');
             }
         };
 
