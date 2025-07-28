@@ -141,18 +141,35 @@
   </div>
 
   <script>
-    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzHrM4TXg-Ot2P1da3Jq6J5b6W7Ukn2jLr_0Mql8XvfY-XXm9G1_H2HUFIlTrqkSzgc/exec'; // Replace with your Google Apps Script URL
+    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzHrM4TXg-Ot2P1da3Jq6J5b6W7Ukn2jLr_0Mql8XvfY-XXm9G1_H2HUFIlTrqkSzgc/exec';
+    const LIFF_ID = '2005780370-27LZkWna';
+    const botBasicId = '@233svlmc';
     let signaturePad;
     let currentRecordId;
     let userId, userName, userPicture;
-    const YOUR_LIFF_ID = '2005780370-27LZkWna'
-    const botBasicId = '@233svlmc'
+
+    // Fallback to hide preloader after 10 seconds
+    function ensurePreloaderHidden() {
+      setTimeout(() => {
+        hidePreloader();
+      }, 10000);
+    }
+
+    // Preloader
+    function showPreloader() {
+      document.getElementById('preloader').classList.remove('hidden');
+      ensurePreloaderHidden(); // Ensure preloader hides after timeout
+    }
+
+    function hidePreloader() {
+      document.getElementById('preloader').classList.add('hidden');
+    }
 
     // Initialize LIFF
     async function initializeLiff() {
       showPreloader();
       try {
-        await liff.init({ liffId: YOUR_LIFF_ID, withLoginOnExternalBrowser: true }); // Replace with your LIFF ID
+        await liff.init({ liffId: LIFF_ID, withLoginOnExternalBrowser: true });
 
         if (liff.isLoggedIn()) {
           const profile = await liff.getProfile();
@@ -165,20 +182,21 @@
           document.getElementById('userName').classList.remove('hidden');
           document.getElementById('userPicture').classList.remove('hidden');
 
-          liff.getFriendship().then((data) => {
-            if (!data.friendFlag) {
-              Swal.fire('เดี๋ยวก่อน!', 'คุณยังไม่ได้เป็นเพื่อนกับเรา', 'error').then(() => {
-                window.location = 'https://line.me/R/ti/p/' + botBasicId;
-              });
-            } else {
-              loadData();
-            }
-          });
+          const friendship = await liff.getFriendship();
+          if (!friendship.friendFlag) {
+            Swal.fire('เดี๋ยวก่อน!', 'คุณยังไม่ได้เป็นเพื่อนกับเรา', 'error').then(() => {
+              window.location = 'https://line.me/R/ti/p/' + botBasicId;
+              hidePreloader(); // Ensure preloader is hidden before redirect
+            });
+            return;
+          }
+          await loadData();
         } else {
           liff.login({ redirectUri: window.location.href });
+          hidePreloader(); // Ensure preloader is hidden before login redirect
         }
       } catch (error) {
-        console.error('LIFF initialization failed', error);
+        console.error('LIFF initialization failed:', error);
         Swal.fire({
           toast: true,
           position: 'top-end',
@@ -189,15 +207,6 @@
         });
         hidePreloader();
       }
-    }
-
-    // Preloader
-    function showPreloader() {
-      document.getElementById('preloader').classList.remove('hidden');
-    }
-
-    function hidePreloader() {
-      document.getElementById('preloader').classList.add('hidden');
     }
 
     // Form Submission
@@ -220,11 +229,11 @@
       const fileInput = document.getElementById('fileUpload');
       let fileData = '';
 
-      if (fileInput.files.length > 0) {
-        fileData = await readFileAsBase64(fileInput.files[0]);
-      }
-
       try {
+        if (fileInput.files.length > 0) {
+          fileData = await readFileAsBase64(fileInput.files[0]);
+        }
+
         const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
           method: 'POST',
           body: JSON.stringify({
@@ -234,10 +243,12 @@
             activity,
             teacher,
             file: fileData,
-            userId
+            userId,
+            userName
           }),
           headers: { 'Content-Type': 'application/json' }
         });
+
         const result = await response.json();
 
         if (result.success) {
@@ -286,7 +297,7 @@
           });
 
           document.getElementById('bookForm').reset();
-          loadData();
+          await loadData();
         } else {
           Swal.fire({
             toast: true,
@@ -298,23 +309,26 @@
           });
         }
       } catch (error) {
+        console.error('Form submission failed:', error);
         Swal.fire({
           toast: true,
           position: 'top-end',
           icon: 'error',
-          title: 'เกิดข้อผิดพลาด',
+          title: 'เกิดข้อผิดพลาดในการบันทึก',
           showConfirmButton: false,
           timer: 3000
         });
+      } finally {
+        hidePreloader();
       }
-      hidePreloader();
     });
 
     // Read file as base64
     function readFileAsBase64(file) {
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
         reader.readAsDataURL(file);
       });
     }
@@ -335,6 +349,9 @@
         const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=get`, {
           method: 'GET'
         });
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
         const data = await response.json();
 
         // Update Table
@@ -383,6 +400,7 @@
           }
         });
       } catch (error) {
+        console.error('Data loading failed:', error);
         Swal.fire({
           toast: true,
           position: 'top-end',
@@ -391,8 +409,9 @@
           showConfirmButton: false,
           timer: 3000
         });
+      } finally {
+        hidePreloader();
       }
-      hidePreloader();
     }
 
     // View Details
@@ -403,6 +422,9 @@
         didOpen: async () => {
           try {
             const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getById&id=${id}`);
+            if (!response.ok) {
+              throw new Error(`HTTP error! Status: ${response.status}`);
+            }
             const record = await response.json();
             Swal.fire({
               title: 'รายละเอียด',
@@ -417,6 +439,7 @@
               `
             });
           } catch (error) {
+            console.error('View details failed:', error);
             Swal.fire({
               icon: 'error',
               title: 'เกิดข้อผิดพลาด',
@@ -494,7 +517,7 @@
           });
           document.getElementById('signatureModal').classList.add('hidden');
           signaturePad.clear();
-          loadData();
+          await loadData();
         } else {
           Swal.fire({
             toast: true,
@@ -506,16 +529,18 @@
           });
         }
       } catch (error) {
+        console.error('Signature saving failed:', error);
         Swal.fire({
           toast: true,
           position: 'top-end',
           icon: 'error',
-          title: 'เกิดข้อผิดพลาด',
+          title: 'เกิดข้อผิดพลาดในการบันทึกลายเซ็น',
           showConfirmButton: false,
           timer: 3000
         });
+      } finally {
+        hidePreloader();
       }
-      hidePreloader();
     });
 
     // Initialize
