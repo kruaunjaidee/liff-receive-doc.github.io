@@ -12,6 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
+        /* Custom Tailwind config for colorful Canva-like UI */
         @tailwind base;
         @tailwind components;
         @tailwind utilities;
@@ -38,16 +39,20 @@
     </script>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center p-4">
+    <!-- Preloader -->
     <div id="preloader" class="fixed inset-0 bg-white flex items-center justify-center z-50">
         <div class="animate-spin rounded-full h-32 w-32 border-t-4 border-b-4 border-primary"></div>
     </div>
 
+    <!-- Main Content (hidden initially) -->
     <div id="main-content" class="hidden w-full max-w-4xl bg-white rounded-xl shadow-2xl p-6 space-y-8">
+        <!-- Header with User Profile -->
         <header class="flex items-center space-x-4">
             <img id="userPicture" class="w-12 h-12 rounded-full" src="" alt="User Picture">
             <h1 id="userName" class="text-2xl font-bold text-primary"></h1>
         </header>
 
+        <!-- Form Section -->
         <section class="bg-gradient-to-r from-secondary to-accent p-6 rounded-lg">
             <h2 class="text-xl font-semibold text-white mb-4">ลงข้อมูลแจ้งส่งหนังสือ</h2>
             <form id="deliveryForm" class="space-y-4">
@@ -82,11 +87,13 @@
             </form>
         </section>
 
+        <!-- Graph Section -->
         <section class="bg-gradient-to-r from-info to-success p-6 rounded-lg">
             <h2 class="text-xl font-semibold text-white mb-4">กราฟจำนวนกิจกรรม</h2>
             <canvas id="activityChart" class="w-full h-64"></canvas>
         </section>
 
+        <!-- Table Section -->
         <section class="bg-gradient-to-r from-warning to-error p-6 rounded-lg">
             <h2 class="text-xl font-semibold text-white mb-4">ข้อมูลล่าสุด 5 รายการ</h2>
             <table class="w-full table-auto border-collapse">
@@ -103,6 +110,7 @@
         </section>
     </div>
 
+    <!-- Modal for Details and Signature -->
     <div id="detailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
         <div class="bg-white p-6 rounded-lg w-full max-w-md space-y-4">
             <h2 id="modalTitle" class="text-xl font-bold"></h2>
@@ -117,9 +125,10 @@
     </div>
 
     <script>
-        const LIFF_ID = '2005780370-27LZkWna';
-        const botBasicId = '@233svlmc';
-        const SHEET_URL = 'https://script.google.com/macros/s/AKfycbzHrM4TXg-Ot2P1da3Jq6J5b6W7Ukn2jLr_0Mql8XvfY-XXm9G1_H2HUFIlTrqkSzgc/exec';
+        // Replace with your actual values
+        const LIFF_ID = '2005780370-27LZkWna'; // จาก LINE Developer Console
+        const botBasicId = '@233svlmc'; // LINE Bot Basic ID
+        const SHEET_URL = 'https://script.google.com/macros/s/AKfycbzHrM4TXg-Ot2P1da3Jq6J5b6W7Ukn2jLr_0Mql8XvfY-XXm9G1_H2HUFIlTrqkSzgc/exec'; // Deploy Google Apps Script as Web App
 
         let userId, userName, userPicture;
         let historyData = [];
@@ -129,6 +138,7 @@
         async function initializeLIFF() {
             try {
                 await liff.init({ liffId: LIFF_ID, withLoginOnExternalBrowser: true });
+
                 if (liff.isLoggedIn()) {
                     const profile = await liff.getProfile();
                     userId = profile.userId;
@@ -137,6 +147,14 @@
 
                     document.getElementById('userName').textContent = userName;
                     document.getElementById('userPicture').src = userPicture;
+
+                    liff.getFriendship().then((data) => {
+                        if (!data.friendFlag) {
+                            Swal.fire('เดี๋ยวก่อน!', 'คุณยังไม่ได้เป็นเพื่อนกับเรา', 'error').then(() => {
+                                window.location = 'https://line.me/R/ti/p/' + botBasicId;
+                            });
+                        }
+                    });
 
                     loadDeliveryHistory();
                 } else {
@@ -175,12 +193,9 @@
                     method: 'GET',
                     headers: { 'Content-Type': 'application/json' }
                 });
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`HTTP error! Status: ${response.status}, Response: ${errorText}`);
-                }
+                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
                 historyData = await response.json();
-                historyData.reverse();
+                historyData.reverse(); // Make newest first
 
                 updateTable();
                 updateChart();
@@ -196,7 +211,7 @@
         function updateTable() {
             const tbody = document.getElementById('historyTable');
             tbody.innerHTML = '';
-            const last5 = historyData.slice(0, 5);
+            const last5 = historyData.slice(0, 5); // Since reversed, first 5 are newest
             last5.forEach((row, index) => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
@@ -264,15 +279,11 @@
                 const base64 = signaturePad.toDataURL();
                 showToast('กำลังบันทึกลายเซ็น...', 'info');
                 try {
-                    const response = await fetch(SHEET_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'updateSignature', id: historyData[index].id, sig: base64 })
+                    const response = await fetch(`${SHEET_URL}?action=updateSignature&id=${historyData[index].id}&sig=${encodeURIComponent(base64)}`, {
+                        method: 'GET',
+                        headers: { 'Content-Type': 'application/json' }
                     });
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`HTTP error! Status: ${response.status}, Response: ${errorText}`);
-                    }
+                    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
                     const result = await response.json();
                     if (result.success) {
                         historyData[index].signature = base64;
@@ -281,7 +292,7 @@
                         showToast('บันทึกลายเซ็นเรียบร้อย', 'success');
                         showConfetti();
                     } else {
-                        showToast(`บันทึกลายเซ็นล้มเหลว: ${result.message}`, 'error');
+                        showToast('บันทึกลายเซ็นล้มเหลว: ' + result.message, 'error');
                     }
                 } catch (error) {
                     console.error('Save signature failed', error);
@@ -334,6 +345,7 @@
             try {
                 const response = await fetch(SHEET_URL, {
                     method: 'POST',
+                    mode: 'cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(body)
                 });
@@ -345,6 +357,7 @@
                 if (result.success) {
                     showToast('บันทึกเรียบร้อย', 'success');
                     showConfetti();
+                    // Share Flex Message
                     const flex = {
                         type: "bubble",
                         body: {
@@ -370,6 +383,7 @@
             }
         };
 
+        // Initialize
         initializeLIFF();
     </script>
 </body>
