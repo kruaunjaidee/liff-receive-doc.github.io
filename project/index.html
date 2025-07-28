@@ -1,377 +1,142 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>แจ้งส่งหนังสือเข้า - LINE LIFF</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    <style>
-        @tailwind base;
-        @tailwind components;
-        @tailwind utilities;
-        body {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+// code.gs
+// Google Apps Script for handling insert/get/update operations on Google Sheet
+// and uploading files to Google Drive.
+
+const SPREADSHEET_ID = '1Ac9rY4r8uiObyzv259gNojZFaIZl5RswsBWtnWkiFSw';
+const SHEET_NAME = 'Deliveries';
+const FOLDER_ID = '1AjKaXdXrzF7OTq0tUTLlSpfHxWoUgCB0';
+
+// Headers in Sheet: A: id, B: no, C: topic, D: activity, E: teacher, F: fileurl, G: signature
+
+function doGet(e) {
+  Logger.log('doGet called with params: ' + JSON.stringify(e.parameter));
+  try {
+    const params = e.parameter;
+    const action = params.action;
+
+    if (action === 'getHistory') {
+      return getHistory();
+    }
+    return jsonOutput({ success: false, message: 'Invalid action' });
+  } catch (error) {
+    Logger.log('Error in doGet: ' + error.message);
+    return jsonOutput({ success: false, message: `Error in doGet: ${error.message}` });
+  }
+}
+
+function doPost(e) {
+  Logger.log('doPost called with data: ' + e.postData.contents);
+  try {
+    if (!e.postData || e.postData.type !== 'application/json') {
+      return jsonOutput({ success: false, message: 'Unsupported content type, expected application/json' });
+    }
+
+    let body;
+    try {
+      body = JSON.parse(e.postData.contents);
+    } catch (err) {
+      Logger.log('Invalid JSON body: ' + err.message);
+      return jsonOutput({ success: false, message: `Invalid JSON body: ${err.message}` });
+    }
+
+    const action = body.action;
+
+    if (action === 'insert') {
+      const no = body.no;
+      const topic = body.topic;
+      const activity = body.activity;
+      const teacher = body.teacher;
+      const fileBase64 = body.fileBase64;
+      const fileName = body.fileName;
+      const mimeType = body.mimeType;
+
+      if (!no || !topic || !activity || !teacher) {
+        return jsonOutput({ success: false, message: 'Missing required fields' });
+      }
+
+      let fileurl = '';
+      if (fileBase64 && fileName && mimeType) {
+        try {
+          const data = Utilities.base64Decode(fileBase64);
+          const blob = Utilities.newBlob(data, mimeType, fileName);
+          const folder = DriveApp.getFolderById(FOLDER_ID || 'root');
+          const file = folder.createFile(blob);
+          file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+          fileurl = file.getUrl();
+        } catch (err) {
+          Logger.log('File upload failed: ' + err.message);
+          return jsonOutput({ success: false, message: `File upload failed: ${err.message}` });
         }
-    </style>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'primary': '#4f46e5',
-                        'secondary': '#ec4899',
-                        'accent': '#fbbf24',
-                        'success': '#22c55e',
-                        'info': '#3b82f6',
-                        'warning': '#f59e0b',
-                        'error': '#ef4444',
-                    },
-                },
-            },
+      }
+
+      const id = new Date().getTime().toString();
+      const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
+      sheet.appendRow([id, no, topic, activity, teacher, fileurl, '']);
+
+      return jsonOutput({
+        success: true,
+        data: { id, no, topic, activity, teacher, fileurl }
+      });
+    } else if (action === 'updateSignature') {
+      const id = body.id;
+      const sig = body.sig;
+
+      if (!id || !sig) {
+        return jsonOutput({ success: false, message: 'Missing id or sig' });
+      }
+
+      try {
+        const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
+        const data = sheet.getDataRange().getValues();
+
+        for (let i = 1; i < data.length; i++) {
+          if (data[i][0] == id) {
+            sheet.getRange(i + 1, 7).setValue(sig);
+            Logger.log('Signature updated for ID: ' + id);
+            return jsonOutput({ success: true });
+          }
         }
-    </script>
-</head>
-<body class="min-h-screen flex flex-col items-center justify-center p-4">
-    <div id="preloader" class="fixed inset-0 bg-white flex items-center justify-center z-50">
-        <div class="animate-spin rounded-full h-32 w-32 border-t-4 border-b-4 border-primary"></div>
-    </div>
+        Logger.log('ID not found: ' + id);
+        return jsonOutput({ success: false, message: 'ID not found' });
+      } catch (error) {
+        Logger.log('Error in updateSignature: ' + error.message);
+        return jsonOutput({ success: false, message: `Error in updateSignature: ${error.message}` });
+      }
+    }
 
-    <div id="main-content" class="hidden w-full max-w-4xl bg-white rounded-xl shadow-2xl p-6 space-y-8">
-        <header class="flex items-center space-x-4">
-            <img id="userPicture" class="w-12 h-12 rounded-full" src="" alt="User Picture">
-            <h1 id="userName" class="text-2xl font-bold text-primary"></h1>
-        </header>
+    return jsonOutput({ success: false, message: 'Invalid action' });
+  } catch (error) {
+    Logger.log('Error in doPost: ' + error.message);
+    return jsonOutput({ success: false, message: `Error in doPost: ${error.message}` });
+  }
+}
 
-        <section class="bg-gradient-to-r from-secondary to-accent p-6 rounded-lg">
-            <h2 class="text-xl font-semibold text-white mb-4">ลงข้อมูลแจ้งส่งหนังสือ</h2>
-            <form id="deliveryForm" class="space-y-4">
-                <input type="text" id="bookNo" placeholder="เลขที่หนังสือ" class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-primary" required>
-                <input type="text" id="topic" placeholder="เรื่องที่แจ้ง" class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-primary" required>
-                <select id="activity" class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-primary" required>
-                    <option value="">เลือกกิจกรรม</option>
-                    <option value="แต่งคำประพันธ์">แต่งคำประพันธ์</option>
-                    <option value="พูดสุนทรพจน์">พูดสุนทรพจน์</option>
-                    <option value="อ่านทำนองเสนาะ">อ่านทำนองเสนาะ</option>
-                </select>
-                <select id="teacher" class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-primary" required>
-                    <option value="">เลือกครูผู้รับผิดชอบ</option>
-                    <option value="นางสาวอารี บัวคุ้มภัย">นางสาวอารี บัวคุ้มภัย</option>
-                    <option value="นายประยุทธ์ ไทรย้อยสกุลเลิศ">นายประยุทธ์ ไทรย้อยสกุลเลิศ</option>
-                    <option value="นายสุภัทรพงศ์ รวงผึ้งรุ่งโรจน์">นายสุภัทรพงศ์ รวงผึ้งรุ่งโรจน์</option>
-                    <option value="นางปนัศญา เจริญมาก">นางปนัศญา เจริญมาก</option>
-                    <option value="นางสาวสุวาณี ธรรมศรี">นางสาวสุวาณี ธรรมศรี</option>
-                    <option value="ว่าที่ร้อยตรีหญิงภาริษา ธนสิริงาม">ว่าที่ร้อยตรีหญิงภาริษา ธนสิริงาม</option>
-                    <option value="นางมณฑาทิพย์ คีรีสุทธิวงศ์">นางมณฑาทิพย์ คีรีสุทธิวงศ์</option>
-                    <option value="นางสาวสุปาณี อินองการ">นางสาวสุปาณี อินองการ</option>
-                    <option value="นางสาวนุชนาฏ แถลงสัตย์">นางสาวนุชนาฏ แถลงสัตย์</option>
-                    <option value="ว่าที่ร้อยตรีหญิงอุบลวรรณ กันตะแก้ว">ว่าที่ร้อยตรีหญิงอุบลวรรณ กันตะแก้ว</option>
-                    <option value="นายณัฐพล เนียมพิทักษ์">นายณัฐพล เนียมพิทักษ์</option>
-                    <option value="นายสัมฤทธิ์ มีทรัพย์มั่น">นายสัมฤทธิ์ มีทรัพย์มั่น</option>
-                    <option value="นางสาวเพชรนภา ผาดผ่อง">นางสาวเพชรนภา ผาดผ่อง</option>
-                    <option value="นางสาวมัทวัน ศรีภักดี">นางสาวมัทวัน ศรีภักดี</option>
-                    <option value="นายสรนันท์ สายดี">นายสรนันท์ สายดี</option>
-                </select>
-                <input type="file" id="fileUpload" class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-primary">
-                <button type="submit" class="w-full bg-primary text-white p-2 rounded hover:bg-opacity-90">บันทึกและส่งแจ้ง</button>
-            </form>
-        </section>
+function getHistory() {
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0].map(h => h.toLowerCase());
+    const rows = data.slice(1).map(row => {
+      const obj = {};
+      headers.forEach((h, i) => {
+        obj[h] = row[i];
+      });
+      return obj;
+    });
+    Logger.log('getHistory returning ' + rows.length + ' rows');
+    return jsonOutput(rows);
+  } catch (error) {
+    Logger.log('Error in getHistory: ' + error.message);
+    return jsonOutput({ success: false, message: `Error in getHistory: ${error.message}` });
+  }
+}
 
-        <section class="bg-gradient-to-r from-info to-success p-6 rounded-lg">
-            <h2 class="text-xl font-semibold text-white mb-4">กราฟจำนวนกิจกรรม</h2>
-            <canvas id="activityChart" class="w-full h-64"></canvas>
-        </section>
+function jsonOutput(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
 
-        <section class="bg-gradient-to-r from-warning to-error p-6 rounded-lg">
-            <h2 class="text-xl font-semibold text-white mb-4">ข้อมูลล่าสุด 5 รายการ</h2>
-            <table class="w-full table-auto border-collapse">
-                <thead>
-                    <tr class="bg-primary text-white">
-                        <th class="p-2">กิจกรรม</th>
-                        <th class="p-2">ครูผู้รับผิดชอบ</th>
-                        <th class="p-2">การกระทำ</th>
-                        <th class="p-2">ลายเซ็น</th>
-                    </tr>
-                </thead>
-                <tbody id="historyTable" class="text-center"></tbody>
-            </table>
-        </section>
-    </div>
-
-    <div id="detailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
-        <div class="bg-white p-6 rounded-lg w-full max-w-md space-y-4">
-            <h2 id="modalTitle" class="text-xl font-bold"></h2>
-            <p id="modalDetails"></p>
-            <div id="signatureSection" class="hidden">
-                <canvas id="signaturePad" class="border w-full h-40"></canvas>
-                <button id="clearSignature" class="bg-warning text-white p-2 rounded">ล้าง</button>
-                <button id="saveSignature" class="bg-success text-white p-2 rounded">บันทึกลายเซ็น</button>
-            </div>
-            <button id="closeModal" class="bg-error text-white p-2 rounded">ปิด</button>
-        </div>
-    </div>
-
-    <script>
-        const LIFF_ID = '2005780370-27LZkWna';
-        const botBasicId = '@233svlmc';
-        const SHEET_URL = 'https://script.google.com/macros/s/AKfycbzHrM4TXg-Ot2P1da3Jq6J5b6W7Ukn2jLr_0Mql8XvfY-XXm9G1_H2HUFIlTrqkSzgc/exec';
-
-        let userId, userName, userPicture;
-        let historyData = [];
-        let signaturePad;
-        let currentRowIndex;
-
-        async function initializeLIFF() {
-            try {
-                await liff.init({ liffId: LIFF_ID, withLoginOnExternalBrowser: true });
-                if (liff.isLoggedIn()) {
-                    const profile = await liff.getProfile();
-                    userId = profile.userId;
-                    userName = profile.displayName;
-                    userPicture = profile.pictureUrl;
-
-                    document.getElementById('userName').textContent = userName;
-                    document.getElementById('userPicture').src = userPicture;
-
-                    loadDeliveryHistory();
-                } else {
-                    liff.login({ redirectUri: window.location.href });
-                }
-            } catch (error) {
-                console.error('LIFF initialization failed', error);
-                showToast('ไม่สามารถเชื่อมต่อกับ LINE ได้ (กำลังใช้โหมดทดสอบ)', 'info');
-                loadDeliveryHistory();
-            }
-        }
-
-        function showToast(message, icon) {
-            Swal.fire({
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 3000,
-                icon: icon,
-                title: message
-            });
-        }
-
-        function showConfetti() {
-            confetti({
-                particleCount: 100,
-                spread: 70,
-                origin: { y: 0.6 }
-            });
-        }
-
-        async function loadDeliveryHistory() {
-            showToast('กำลังโหลดข้อมูล...', 'info');
-            try {
-                const response = await fetch(`${SHEET_URL}?action=getHistory`, {
-                    method: 'GET',
-                    mode: 'cors',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`HTTP error! Status: ${response.status}, Response: ${errorText}`);
-                }
-                historyData = await response.json();
-                historyData.reverse();
-
-                updateTable();
-                updateChart();
-                document.getElementById('preloader').classList.add('hidden');
-                document.getElementById('main-content').classList.remove('hidden');
-                showToast('โหลดข้อมูลเรียบร้อย', 'success');
-            } catch (error) {
-                console.error('Load history failed', error);
-                showToast(`โหลดข้อมูลล้มเหลว: ${error.message}`, 'error');
-            }
-        }
-
-        function updateTable() {
-            const tbody = document.getElementById('historyTable');
-            tbody.innerHTML = '';
-            const last5 = historyData.slice(0, 5);
-            last5.forEach((row, index) => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td class="p-2 border">${row.activity}</td>
-                    <td class="p-2 border">${row.teacher}</td>
-                    <td class="p-2 border">
-                        <button onclick="viewDetails(${index})" class="bg-info text-white p-1 rounded">ดูข้อมูล</button>
-                        ${row.signature ? '' : `<button onclick="acknowledge(${index})" class="bg-success text-white p-1 rounded ml-2">รับทราบ</button>`}
-                    </td>
-                    <td class="p-2 border">${row.signature ? `<img src="${row.signature}" class="w-20 h-10 object-contain">` : ''}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        function updateChart() {
-            const counts = {};
-            historyData.forEach(row => {
-                counts[row.activity] = (counts[row.activity] || 0) + 1;
-            });
-            const ctx = document.getElementById('activityChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(counts),
-                    datasets: [{
-                        label: 'จำนวนกิจกรรม',
-                        data: Object.values(counts),
-                        backgroundColor: ['#ef4444', '#f59e0b', '#22c55e']
-                    }]
-                },
-                options: { scales: { y: { beginAtZero: true } } }
-            });
-        }
-
-        function viewDetails(index) {
-            const row = historyData[index];
-            document.getElementById('modalTitle').textContent = `รายละเอียด: ${row.no}`;
-            document.getElementById('modalDetails').innerHTML = `
-                เรื่อง: ${row.topic}<br>
-                กิจกรรม: ${row.activity}<br>
-                ครู: ${row.teacher}<br>
-                ${row.fileurl ? `<a href="${row.fileurl}" target="_blank">ไฟล์</a>` : ''}
-            `;
-            document.getElementById('signatureSection').classList.add('hidden');
-            document.getElementById('detailModal').classList.remove('hidden');
-        }
-
-        function acknowledge(index) {
-            currentRowIndex = index;
-            document.getElementById('modalTitle').textContent = 'รับทราบเอกสาร';
-            document.getElementById('modalDetails').textContent = 'กรุณาเซ็นชื่อด้านล่าง';
-            document.getElementById('signatureSection').classList.remove('hidden');
-            document.getElementById('detailModal').classList.remove('hidden');
-
-            const canvas = document.getElementById('signaturePad');
-            signaturePad = new SignaturePad(canvas);
-
-            document.getElementById('clearSignature').onclick = () => signaturePad.clear();
-            document.getElementById('saveSignature').onclick = async () => {
-                if (signaturePad.isEmpty()) {
-                    showToast('กรุณาเซ็นชื่อ', 'warning');
-                    return;
-                }
-                const base64 = signaturePad.toDataURL();
-                showToast('กำลังบันทึกลายเซ็น...', 'info');
-                try {
-                    const response = await fetch(`${SHEET_URL}?action=updateSignature&id=${historyData[index].id}&sig=${encodeURIComponent(base64)}`, {
-                        method: 'GET',
-                        mode: 'cors',
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`HTTP error! Status: ${response.status}, Response: ${errorText}`);
-                    }
-                    const result = await response.json();
-                    if (result.success) {
-                        historyData[index].signature = base64;
-                        updateTable();
-                        document.getElementById('detailModal').classList.add('hidden');
-                        showToast('บันทึกลายเซ็นเรียบร้อย', 'success');
-                        showConfetti();
-                    } else {
-                        showToast(`บันทึกลายเซ็นล้มเหลว: ${result.message}`, 'error');
-                    }
-                } catch (error) {
-                    console.error('Save signature failed', error);
-                    showToast(`บันทึกลายเซ็นล้มเหลว: ${error.message}`, 'error');
-                }
-            };
-        }
-
-        document.getElementById('closeModal').onclick = () => {
-            document.getElementById('detailModal').classList.add('hidden');
-            if (signaturePad) signaturePad.clear();
-        };
-
-        document.getElementById('deliveryForm').onsubmit = async (e) => {
-            e.preventDefault();
-            showToast('กำลังบันทึก...', 'info');
-
-            const no = document.getElementById('bookNo').value.trim();
-            const topic = document.getElementById('topic').value.trim();
-            const activity = document.getElementById('activity').value;
-            const teacher = document.getElementById('teacher').value;
-            const file = document.getElementById('fileUpload').files[0];
-
-            if (!no || !topic || !activity || !teacher) {
-                showToast('กรุณากรอกข้อมูลให้ครบ', 'warning');
-                return;
-            }
-
-            let body = { action: 'insert', no, topic, activity, teacher };
-
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = async () => {
-                    const base64 = reader.result.replace(/^data:.+;base64,/, '');
-                    body.fileBase64 = base64;
-                    body.fileName = file.name;
-                    body.mimeType = file.type;
-                    await sendInsert(body);
-                };
-                reader.onerror = () => {
-                    showToast('เกิดข้อผิดพลาดในการอ่านไฟล์', 'error');
-                };
-                reader.readAsDataURL(file);
-            } else {
-                await sendInsert(body);
-            }
-        };
-
-        async function sendInsert(body) {
-            try {
-                const response = await fetch(SHEET_URL, {
-                    method: 'POST',
-                    mode: 'cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                });
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`HTTP error! Status: ${response.status}, Response: ${errorText}`);
-                }
-                const result = await response.json();
-                if (result.success) {
-                    showToast('บันทึกเรียบร้อย', 'success');
-                    showConfetti();
-                    const flex = {
-                        type: "bubble",
-                        body: {
-                            type: "box",
-                            layout: "vertical",
-                            contents: [
-                                { type: "text", text: `เลขที่: ${result.data.no}` },
-                                { type: "text", text: `เรื่อง: ${result.data.topic}` },
-                                { type: "text", text: `กิจกรรม: ${result.data.activity}` },
-                                { type: "text", text: `ครู: ${result.data.teacher}` },
-                                ...(result.data.fileurl ? [{ type: "text", text: `ไฟล์: ${result.data.fileurl}` }] : [])
-                            ]
-                        }
-                    };
-                    await liff.shareTargetPicker([{ type: "flex", altText: "แจ้งส่งหนังสือ", contents: flex }]);
-                    loadDeliveryHistory();
-                } else {
-                    showToast(`บันทึกล้มเหลว: ${result.message || 'ไม่ทราบสาเหตุ'}`, 'error');
-                }
-            } catch (error) {
-                console.error('Save failed', error);
-                showToast(`บันทึกล้มเหลว: ${error.message}`, 'error');
-            }
-        };
-
-        initializeLIFF();
-    </script>
-</body>
-</html>
+function doOptions(e) {
+  Logger.log('doOptions called');
+  return jsonOutput({ success: true });
+}
