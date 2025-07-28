@@ -87,7 +87,7 @@
             <option value="นางสาวสุวาณี ธรรมศรี">นางสาวสุวาณี ธรรมศรี</option>
             <option value="ว่าที่ร้อยตรีหญิงภาริษา ธนสิริงาม">ว่าที่ร้อยตรีหญิงภาริษา ธนสิริงาม</option>
             <option value="นางมณฑาทิพย์ คีรีสุทธิวงศ์">นางมณฑาทิพย์ คีรีสุทธิวงศ์</option>
-            <option value="นางสาวสุปาณี อินองการ">นางสาวสุปารี อินองการ</option>
+            <option value="นางสาวสุปาณี อินองการ">นางสาวสุปาณี อินองการ</option>
             <option value="นางสาวนุชนาฏ แถลงสัตย์">นางสาวนุชนาฏ แถลงสัตย์</option>
             <option value="ว่าที่ร้อยตรีหญิงอุบลวรรณ กันตะแก้ว">ว่าที่ร้อยตรีหญิงอุบลวรรณ กันตะแก้ว</option>
             <option value="นายณัฐพล เนียมพิทักษ์">นายณัฐพล เนียมพิทักษ์</option>
@@ -265,12 +265,18 @@
           resolve(data);
         }
       }).then(data => {
+        console.log('Submitting data:', data);
         return $.ajax({
           url: scriptUrl,
           type: 'POST',
           contentType: 'application/json',
           data: JSON.stringify(data),
+          crossDomain: true,
+          headers: {
+            'Accept': 'application/json'
+          },
           success: result => {
+            console.log('Submission success:', result);
             if (result.success) {
               Swal.fire({
                 toast: true,
@@ -332,26 +338,35 @@
               $('#bookForm')[0].reset();
               loadData();
             } else {
+              console.error('Submission failed:', result);
               Swal.fire({
                 toast: true,
                 position: 'top-end',
                 icon: 'error',
-                title: 'บันทึกข้อมูลล้มเหลว',
+                title: 'บันทึกข้อมูลล้มเหลว: ' + (result.error || 'ไม่ทราบสาเหตุ'),
                 showConfirmButton: false,
                 timer: 3000
               });
             }
           },
           error: (jqXHR, textStatus, errorThrown) => {
-            console.error('Form submission failed:', textStatus, errorThrown);
+            console.error('Form submission failed:', textStatus, errorThrown, jqXHR);
             Swal.fire({
               toast: true,
               position: 'top-end',
               icon: 'error',
-              title: 'เกิดข้อผิดพลาดในการบันทึก',
+              title: `เกิดข้อผิดพลาดในการบันทึก: ${textStatus} (${errorThrown})`,
               showConfirmButton: false,
-              timer: 3000
+              timer: 5000
             });
+            // Fallback to fetch
+            fetch(scriptUrl, {
+              method: 'POST',
+              body: JSON.stringify(data),
+              headers: { 'Content-Type': 'application/json' }
+            }).then(response => response.json())
+              .then(result => console.log('Fetch fallback success:', result))
+              .catch(err => console.error('Fetch fallback failed:', err));
           },
           complete: () => {
             hidePreloader();
@@ -363,9 +378,9 @@
           toast: true,
           position: 'top-end',
           icon: 'error',
-          title: 'เกิดข้อผิดพลาดในการบันทึก',
+          title: 'เกิดข้อผิดพลาดในการบันทึก: ' + error.message,
           showConfirmButton: false,
-          timer: 3000
+          timer: 5000
         });
         hidePreloader();
       });
@@ -460,9 +475,9 @@
           toast: true,
           position: 'top-end',
           icon: 'error',
-          title: 'โหลดข้อมูลล้มเหลว',
+          title: 'โหลดข้อมูลล้มเหลว: ' + error.message,
           showConfirmButton: false,
-          timer: 3000
+          timer: 5000
         });
       } finally {
         hidePreloader();
@@ -498,7 +513,7 @@
             Swal.fire({
               icon: 'error',
               title: 'เกิดข้อผิดพลาด',
-              text: 'ไม่สามารถโหลดข้อมูลได้'
+              text: 'ไม่สามารถโหลดข้อมูลได้: ' + error.message
             });
           }
         }
@@ -543,12 +558,15 @@
         timer: 3000
       });
 
-      const signatureData = signaturePad.toDataURL('image/png');
       try {
+        const signatureData = signaturePad.toDataURL('image/png');
         const response = await $.ajax({
           url: scriptUrl,
           type: 'POST',
           contentType: 'application/json',
+          headers: {
+            'Accept': 'application/json'
+          },
           data: JSON.stringify({
             opt: 'addSignature',
             id: currentRecordId,
@@ -574,11 +592,12 @@
           signaturePad.clear();
           await loadData();
         } else {
+          console.error('Signature submission failed:', response);
           Swal.fire({
             toast: true,
             position: 'top-end',
             icon: 'error',
-            title: 'บันทึกลายเซ็นล้มเหลว',
+            title: 'บันทึกลายเซ็นล้มเหลว: ' + (response.error || ''),
             showConfirmButton: false,
             timer: 3000
           });
@@ -589,10 +608,22 @@
           toast: true,
           position: 'top-end',
           icon: 'error',
-          title: 'เกิดข้อผิดพลาดในการบันทึกลายเซ็น',
+          title: 'เกิดข้อผิดพลาดในการบันทึกลายเซ็น: ' + error.message,
           showConfirmButton: false,
-          timer: 3000
+          timer: 5000
         });
+        // Fallback to fetch
+        fetch(scriptUrl, {
+          method: 'POST',
+          body: JSON.stringify({
+            opt: 'addSignature',
+            id: currentRecordId,
+            signature: signatureData
+          }),
+          headers: { 'Content-Type': 'application/json' }
+        }).then(response => response.json())
+          .then(result => console.log('Signature fetch fallback success:', result))
+          .catch(err => console.error('Signature fetch fallback failed:', err));
       } finally {
         hidePreloader();
       }
