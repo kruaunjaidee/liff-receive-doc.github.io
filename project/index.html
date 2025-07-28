@@ -143,7 +143,7 @@
 
     // Initialize LIFF
     $(document).ready(() => {
-      $.LoadingOverlay('show');
+      // $.LoadingOverlay('show');
       liff.init({
         liffId: LIFF_ID,
         withLoginOnExternalBrowser: true
@@ -172,14 +172,14 @@
                   confirmButtonText: 'ตกลง'
                 }).then(() => {
                   window.location = 'https://line.me/R/ti/p/' + botBasicId;
-                  $.LoadingOverlay('hide');
+                  // $.LoadingOverlay('hide');
                 });
                 return;
               }
               await loadData();
             } else {
               liff.login({ redirectUri: window.location.href });
-              $.LoadingOverlay('hide');
+              // $.LoadingOverlay('hide');
             }
           } catch (error) {
             console.error('LIFF initialization failed:', error);
@@ -191,7 +191,7 @@
               showConfirmButton: false,
               timer: 3000
             });
-            $.LoadingOverlay('hide');
+            // $.LoadingOverlay('hide');
           }
         });
       }).catch(error => {
@@ -204,13 +204,13 @@
           showConfirmButton: false,
           timer: 5000
         });
-        $.LoadingOverlay('hide');
+        // $.LoadingOverlay('hide');
       });
     });
 
     // Form Submission
     function submit() {
-      $.LoadingOverlay('show');
+      // $.LoadingOverlay('show');
       console.log('ฟังก์ชั่น submit ทำงาน');
 
       const fileInput = $('#fileUpload')[0];
@@ -251,7 +251,7 @@
           dataType: 'json',
           crossDomain: true,
           success: function (res) {
-            $.LoadingOverlay('hide');
+            // $.LoadingOverlay('hide');
             console.log('Submission success:', res);
             if (res.status === 'success') {
               $('#bookForm')[0].reset();
@@ -323,7 +323,7 @@
             }
           },
           error: function (jqXHR, textStatus, errorThrown) {
-            $.LoadingOverlay('hide');
+            // $.LoadingOverlay('hide');
             console.error('Form submission failed:', textStatus, errorThrown, jqXHR);
             Swal.fire({
               icon: 'error',
@@ -343,7 +343,7 @@
           }
         });
       }).catch(error => {
-        $.LoadingOverlay('hide');
+        // $.LoadingOverlay('hide');
         console.error('Submission error:', error);
         Swal.fire({
           icon: 'error',
@@ -385,7 +385,7 @@
 
     // Load Data
     async function loadData() {
-      $.LoadingOverlay('show');
+      // $.LoadingOverlay('show');
       Swal.fire({
         toast: true,
         position: 'top-end',
@@ -461,7 +461,7 @@
           timer: 5000
         });
       } finally {
-        $.LoadingOverlay('hide');
+        // $.LoadingOverlay('hide');
       }
     }
 
@@ -533,7 +533,7 @@
         return;
       }
 
-      $.LoadingOverlay('show');
+      // $.LoadingOverlay('show');
       Swal.fire({
         toast: true,
         position: 'top-end',
@@ -603,7 +603,7 @@
           .then(result => console.log('Signature fetch fallback success:', result))
           .catch(err => console.error('Signature fetch fallback failed:', err));
       } finally {
-        $.LoadingOverlay('hide');
+        // $.LoadingOverlay('hide');
       }
     });
   </script>
