@@ -454,7 +454,11 @@
                         const errorText = await response.text();
                         throw new Error(`HTTP ${response.status}: ${errorText || 'Unknown error'}`);
                     }
-                    return await response.json();
+                    const data = await response.json();
+                    if (data.status === 'error') {
+                        throw new Error(data.message || 'Server returned an error');
+                    }
+                    return data;
                 } catch (error) {
                     if (i === retries - 1) throw error;
                     await new Promise(resolve => setTimeout(resolve, delay));
@@ -515,7 +519,7 @@
         async function fetchRecentData() {
             try {
                 const data = await fetchWithRetry(`${GAS_URL}?action=getRecent`, { method: 'GET' });
-                renderTableData('recent-data', data, false);
+                renderTableData('recent-data', Array.isArray(data) ? data : [], false);
             } catch (error) {
                 console.error('Fetch recent data error:', error);
                 Swal.fire({
@@ -531,7 +535,7 @@
             try {
                 const params = new URLSearchParams({ action: 'getAll', activity: activityFilter, search: searchTerm });
                 const data = await fetchWithRetry(`${GAS_URL}?${params}`, { method: 'GET' });
-                renderTableData('all-data', data, true);
+                renderTableData('all-data', Array.isArray(data) ? data : [], true);
             } catch (error) {
                 console.error('Fetch all data error:', error);
                 Swal.fire({
@@ -562,7 +566,7 @@
         function renderTableData(containerId, data, includeActions = false) {
             const container = document.getElementById(containerId);
             container.innerHTML = '';
-            if (!data || data.length === 0) {
+            if (!Array.isArray(data) || data.length === 0) {
                 container.innerHTML = `<tr><td colspan="${includeActions ? 7 : 6}" class="px-6 py-4 text-center text-sm text-gray-500">ไม่พบข้อมูล</td></tr>`;
                 return;
             }
