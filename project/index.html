@@ -6,6 +6,9 @@
     <title>LIFF แจ้งส่งหนังสือเข้า</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://static.line-scdn.net/liff/sdk/v2/liff.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -21,9 +24,7 @@
             }
         }
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://static.line-scdn.net/liff/sdk/v2/liff.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+    
     <style>
         /* Preloader styles */
         #preloader {
@@ -172,14 +173,14 @@
 
     <script>
         // Global variables for LIFF
-        let LIFF_ID = 'YOUR_LIFF_ID'; // <<< IMPORTANT: Replace with your LIFF ID
-        let botBasicId = 'YOUR_BOT_BASIC_ID'; // <<< IMPORTANT: Replace with your LINE Official Account Basic ID
+        let LIFF_ID = '2005780370-27LZkWna'; // <<< IMPORTANT: Replace with your LIFF ID
+        let botBasicId = '@233svlmc'; // <<< IMPORTANT: Replace with your LINE Official Account Basic ID
         let userId = '';
         let userName = '';
         let userPicture = '';
 
         // Google Apps Script Web App URL for Google Sheet interaction
-        const GOOGLE_SHEET_WEB_APP_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL'; // <<< IMPORTANT: Replace with your GAS Web App URL
+        const GOOGLE_SHEET_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzHrM4TXg-Ot2P1da3Jq6J5b6W7Ukn2jLr_0Mql8XvfY-XXm9G1_H2HUFIlTrqkSzgc/exec'; // <<< IMPORTANT: Replace with your GAS Web App URL
 
         // --- Utility Functions ---
 
