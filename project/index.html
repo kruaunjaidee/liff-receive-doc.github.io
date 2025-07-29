@@ -3,958 +3,792 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LIFF แจ้งส่งหนังสือเข้า</title>
+    <title>ระบบแจ้งส่งหนังสือเข้า</title>
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'primary-blue': '#4F46E5',
-                        'secondary-green': '#10B981',
-                        'accent-yellow': '#F59E0B',
-                        'dark-purple': '#6D28D9',
-                        'light-pink': '#FBCFE8'
-                    }
-                }
-            }
-        }
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.5/dist/signature_pad.umd.min.js"></script>
     <style>
-        #preloader {
+        @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');
+        
+        :root {
+            --primary: #FF5757;
+            --secondary: #5271FF;
+            --accent: #38B6FF;
+            --light: #FFFADD;
+            --dark: #333333;
+        }
+        
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #f8f9fa;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+        }
+        
+        .btn-primary {
+            background-color: var(--primary);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            background-color: #ff3c3c;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background-color: var(--secondary);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #3e5bff;
+            transform: translateY(-2px);
+        }
+        
+        .card {
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+        }
+        
+        .preloader {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(255, 255, 255, 0.9);
+            background-color: rgba(255, 255, 255, 0.9);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 9999;
         }
+        
         .spinner {
-            border: 8px solid #f3f3f3;
-            border-top: 8px solid #3498db;
+            width: 50px;
+            height: 50px;
+            border: 5px solid var(--light);
+            border-top: 5px solid var(--primary);
             border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            animation: spin 2s linear infinite;
+            animation: spin 1s linear infinite;
         }
+        
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        .chart-container {
-            position: relative;
-            height: 300px;
+        
+        .signature-pad {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+        }
+        
+        .tab-active {
+            border-bottom: 3px solid var(--primary);
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
         }
     </style>
 </head>
-<body class="bg-gray-100 font-sans antialiased text-gray-800">
-    <div id="preloader" class="hidden">
-        <div class="spinner"></div>
+<body class="bg-gray-50">
+    <!-- Preloader -->
+    <div id="preloader" class="preloader">
+        <div class="text-center">
+            <div class="spinner mx-auto mb-4"></div>
+            <p class="text-lg font-medium text-gray-700">กำลังโหลดข้อมูล...</p>
+        </div>
     </div>
 
-    <div class="container mx-auto p-4 md:p-8">
-        <header class="bg-gradient-to-r from-primary-blue to-dark-purple text-white p-6 rounded-lg shadow-lg mb-8 flex items-center justify-between">
-            <h1 class="text-3xl font-bold">แจ้งส่งหนังสือเข้า</h1>
-            <div class="flex items-center space-x-3">
-                <img id="userPicture" class="w-10 h-10 rounded-full border-2 border-white hidden" alt="User Profile Picture">
-                <span id="userName" class="text-lg font-medium hidden"></span>
-            </div>
-        </header>
+    <!-- Header -->
+    <header class="gradient-bg text-white py-6 px-4 shadow-lg">
+        <div class="container mx-auto">
+            <h1 class="text-2xl md:text-3xl font-bold text-center">ระบบแจ้งส่งหนังสือเข้า</h1>
+            <p class="text-center opacity-90 mt-1">กลุ่มสาระการเรียนรู้ภาษาไทย</p>
+        </div>
+    </header>
 
-        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <section class="lg:col-span-1 bg-white p-6 rounded-lg shadow-lg">
-                <h2 class="text-2xl font-semibold text-dark-purple mb-6">บันทึกข้อมูลหนังสือ</h2>
-                <form id="recordForm" class="space-y-4">
-                    <div>
-                        <label for="bookNumber" class="block text-sm font-medium text-gray-700">เลขที่หนังสือ</label>
-                        <input type="text" id="bookNumber" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primary-blue focus:border-primary-blue" placeholder="ระบุเลขที่หนังสือ" required>
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-6">
+        <!-- Tabs -->
+        <div class="flex border-b border-gray-200 mb-6">
+            <button id="tab-form" class="tab-active px-4 py-2 text-lg">บันทึกข้อมูล</button>
+            <button id="tab-data" class="px-4 py-2 text-lg text-gray-600">ข้อมูลล่าสุด</button>
+            <button id="tab-stats" class="px-4 py-2 text-lg text-gray-600">สถิติ</button>
+        </div>
+
+        <!-- Form Section -->
+        <div id="section-form" class="tab-section">
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">บันทึกข้อมูลหนังสือเข้า</h2>
+                
+                <form id="document-form" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="doc-number" class="block text-sm font-medium text-gray-700 mb-1">เลขที่หนังสือ</label>
+                            <input type="text" id="doc-number" name="doc-number" required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label for="doc-subject" class="block text-sm font-medium text-gray-700 mb-1">เรื่องที่แจ้ง</label>
+                            <input type="text" id="doc-subject" name="doc-subject" required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
                     </div>
-                    <div>
-                        <label for="subject" class="block text-sm font-medium text-gray-700">เรื่องที่แจ้ง</label>
-                        <input type="text" id="subject" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primary-blue focus:border-primary-blue" placeholder="ระบุเรื่องที่แจ้ง" required>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="activity" class="block text-sm font-medium text-gray-700 mb-1">กิจกรรม</label>
+                            <select id="activity" name="activity" required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="" disabled selected>เลือกกิจกรรม</option>
+                                <option value="ตอบปัญหา">ตอบปัญหา</option>
+                                <option value="เขียนตามคำบอก">เขียนตามคำบอก</option>
+                                <option value="เขียนเรียงความ">เขียนเรียงความ</option>
+                                <option value="คัดลายมือ">คัดลายมือ</option>
+                                <option value="โต้วาที">โต้วาที</option>
+                                <option value="ทำนองเสนาะ/เสภา">ทำนองเสนาะ/เสภา</option>
+                                <option value="แต่งคำประพันธ์">แต่งคำประพันธ์</option>
+                                <option value="โอ้เอ้วิหารราย">โอ้เอ้วิหารราย</option>
+                                <option value="อ่านออกเสียงร้อยแก้ว">อ่านออกเสียงร้อยแก้ว</option>
+                                <option value="พูดสุนทรพจน์">พูดสุนทรพจน์</option>
+                                <option value="เกมคำคมต่อคำศัพท์ภาษาไทย">เกมคำคมต่อคำศัพท์ภาษาไทย</option>
+                                <option value="พูดภาษาถิ่น">พูดภาษาถิ่น</option>
+                                <option value="ประกวดตัวละคร">ประกวดตัวละคร</option>
+                                <option value="หนังสือเล่มเล็ก">หนังสือเล่มเล็ก</option>
+                                <option value="สารานุกรม (ห้องสมุด)">สารานุกรม (ห้องสมุด)</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label for="responsible" class="block text-sm font-medium text-gray-700 mb-1">ครูผู้รับผิดชอบ</label>
+                            <select id="responsible" name="responsible" required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="" disabled selected>เลือกครูผู้รับผิดชอบ</option>
+                                <option value="นางสาวอารี บัวคุ้มภัย">นางสาวอารี บัวคุ้มภัย</option>
+                                <option value="นายประยุทธ์ ไทรย้อยสกุลเลิศ">นายประยุทธ์ ไทรย้อยสกุลเลิศ</option>
+                                <option value="นายสุภัทรพงศ์ รวงผึ้งรุ่งโรจน์">นายสุภัทรพงศ์ รวงผึ้งรุ่งโรจน์</option>
+                                <option value="นางปนัศญา เจริญมาก">นางปนัศญา เจริญมาก</option>
+                                <option value="นางสาวสุวาณี ธรรมศรี">นางสาวสุวาณี ธรรมศรี</option>
+                                <option value="ว่าที่ร้อยตรีหญิงภาริษา ธนสิริงาม">ว่าที่ร้อยตรีหญิงภาริษา ธนสิริงาม</option>
+                                <option value="นางมณฑาทิพย์ คีรีสุทธิวงศ์">นางมณฑาทิพย์ คีรีสุทธิวงศ์</option>
+                                <option value="นางสาวสุปาณี อินองการ">นางสาวสุปาณี อินองการ</option>
+                                <option value="นางสาวนุชนาฏ แถลงสัตย์">นางสาวนุชนาฏ แถลงสัตย์</option>
+                                <option value="ว่าที่ร้อยตรีหญิงอุบลวรรณ กันตะแก้ว">ว่าที่ร้อยตรีหญิงอุบลวรรณ กันตะแก้ว</option>
+                                <option value="นายณัฐพล เนียมพิทักษ์">นายณัฐพล เนียมพิทักษ์</option>
+                                <option value="นายสัมฤทธิ์ มีทรัพย์มั่น">นายสัมฤทธิ์ มีทรัพย์มั่น</option>
+                                <option value="นางสาวเพชรนภา ผาดผ่อง">นางสาวเพชรนภา ผาดผ่อง</option>
+                                <option value="นางสาวมัทวัน ศรีภักดี">นางสาวมัทวัน ศรีภักดี</option>
+                                <option value="นายสรนันท์ สายดี">นายสรนันท์ สายดี</option>
+                            </select>
+                        </div>
                     </div>
+                    
                     <div>
-                        <label for="activity" class="block text-sm font-medium text-gray-700">กิจกรรม</label>
-                        <select id="activity" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primary-blue focus:border-primary-blue" required>
-                            <option value="">เลือกกิจกรรม</option>
-                            <option value="ตอบปัญหา">ตอบปัญหา</option>
-                            <option value="เขียนตามคำบอก">เขียนตามคำบอก</option>
-                            <option value="เขียนเรียงความ">เขียนเรียงความ</option>
-                            <option value="คัดลายมือ">คัดลายมือ</option>
-                            <option value="โต้วาที">โต้วาที</option>
-                            <option value="ทำนองเสนาะ/เสภา">ทำนองเสนาะ/เสภา</option>
-                            <option value="แต่งคำประพันธ์">แต่งคำประพันธ์</option>
-                            <option value="โอ้เอ้วิหารราย">โอ้เอ้วิหารราย</option>
-                            <option value="อ่านออกเสียงร้อยแก้ว">อ่านออกเสียงร้อยแก้ว</option>
-                            <option value="พูดสุนทรพจน์">พูดสุนทรพจน์</option>
-                            <option value="เกมคำคมต่อคำศัพท์ภาษาไทย">เกมคำคมต่อคำศัพท์ภาษาไทย</option>
-                            <option value="พูดภาษาถิ่น">พูดภาษาถิ่น</option>
-                            <option value="ประกวดตัวละคร">ประกวดตัวละคร</option>
-                            <option value="หนังสือเล่มเล็ก">หนังสือเล่มเล็ก</option>
-                            <option value="สารานุกรม (ห้องสมุด)">สารานุกรม (ห้องสมุด)</option>
-                        </select>
+                        <label for="file-upload" class="block text-sm font-medium text-gray-700 mb-1">อัพโหลดไฟล์ (ถ้ามี)</label>
+                        <div class="flex items-center justify-center w-full">
+                            <label for="file-upload" class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                                <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <svg class="w-8 h-8 mb-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                    </svg>
+                                    <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">คลิกเพื่ออัพโหลด</span> หรือลากไฟล์มาวาง</p>
+                                    <p class="text-xs text-gray-500">PDF, DOC, DOCX, XLS, XLSX (ไม่เกิน 10MB)</p>
+                                </div>
+                                <input id="file-upload" type="file" class="hidden" />
+                            </label>
+                        </div>
+                        <div id="file-name" class="mt-2 text-sm text-gray-600"></div>
                     </div>
-                    <div>
-                        <label for="responsibleTeacher" class="block text-sm font-medium text-gray-700">มอบครูผู้รับผิดชอบ</label>
-                        <select id="responsibleTeacher" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primary-blue focus:border-primary-blue" required>
-                            <option value="">เลือกครูผู้รับผิดชอบ</option>
-                            <option value="นางสาวอารี บัวคุ้มภัย">นางสาวอารี บัวคุ้มภัย</option>
-                            <option value="นายประยุทธ์ ไทรย้อยสกุลเลิศ">นายประยุทธ์ ไทรย้อยสกุลเลิศ</option>
-                            <option value="นายสุภัทรพงศ์ รวงผึ้งรุ่งโรจน์">นายสุภัทรพงศ์ รวงผึ้งรุ่งโรจน์</option>
-                            <option value="นางปนัศญา เจริญมาก">นางปนัศญา เจริญมาก</option>
-                            <option value="นางสาวสุวาณี ธรรมศรี">นางสาวสุวาณี ธรรมศรี</option>
-                            <option value="ว่าที่ร้อยตรีหญิงภาริษา ธนสิริงาม">ว่าที่ร้อยตรีหญิงภาริษา ธนสิริงาม</option>
-                            <option value="นางมณฑาทิพย์ คีรีสุทธิวงศ์">นางมณฑาทิพย์ คีรีสุทธิวงศ์</option>
-                            <option value="นางสาวสุปาณี อินองการ">นางสาวสุปาณี อินองการ</option>
-                            <option value="นางสาวนุชนาฏ แถลงสัตย์">นางสาวนุชนาฏ แถลงสัตย์</option>
-                            <option value="ว่าที่ร้อยตรีหญิงอุบลวรรณ กันตะแก้ว">ว่าที่ร้อยตรีหญิงอุบลวรรณ กันตะแก้ว</option>
-                            <option value="นายณัฐพล เนียมพิทักษ์">นายณัฐพล เนียมพิทักษ์</option>
-                            <option value="นายสัมฤทธิ์ มีทรัพย์มั่น">นายสัมฤทธิ์ มีทรัพย์มั่น</option>
-                            <option value="นางสาวเพชรนภา ผาดผ่อง">นางสาวเพชรนภา ผาดผ่อง</option>
-                            <option value="นางสาวมัทวัน ศรีภักดี">นางสาวมัทวัน ศรีภักดี</option>
-                            <option value="นายสรนันท์ สายดี">นายสรนันท์ สายดี</option>
-                        </select>
+                    
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button type="reset" class="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-all">
+                            ล้างข้อมูล
+                        </button>
+                        <button type="submit" id="submit-btn" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all flex items-center">
+                            <span>บันทึกข้อมูล</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
                     </div>
-                    <div>
-                        <label for="uploadFile" class="block text-sm font-medium text-gray-700">อัพโหลดไฟล์ (ไม่บังคับ)</label>
-                        <input type="file" id="uploadFile" class="mt-1 block w-full text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-blue file:text-white hover:file:bg-dark-purple" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif">
-                    </div>
-                    <button type="submit" class="w-full bg-secondary-green hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-md shadow-md transition duration-300 ease-in-out">
-                        บันทึกข้อมูล
-                    </button>
                 </form>
-            </section>
-
-            <section class="lg:col-span-2 space-y-8">
-                <div class="bg-white p-6 rounded-lg shadow-lg">
-                    <h2 class="text-2xl font-semibold text-dark-purple mb-4">กราฟแสดงจำนวนกิจกรรม</h2>
-                    <div class="chart-container">
-                        <canvas id="activityChart"></canvas>
-                    </div>
+            </div>
+            
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-gray-800">ข้อมูลล่าสุด</h2>
+                    <button id="view-all-btn" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                        ดูทั้งหมด
+                    </button>
                 </div>
-
-                <div class="bg-white p-6 rounded-lg shadow-lg">
-                    <h2 class="text-2xl font-semibold text-dark-purple mb-4">ข้อมูลล่าสุด 5 รายการ</h2>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ลำดับ</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เลขที่หนังสือ</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">กิจกรรม</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ผู้รับผิดชอบ</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ลายเซ็น</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
-                                </tr>
-                            </thead>
-                            <tbody id="latestRecordsBody" class="bg-white divide-y divide-gray-200">
-                                <tr>
-                                    <td colspan="6" class="text-center py-4 text-gray-500">กำลังโหลดข้อมูล...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    วันที่
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    เลขที่หนังสือ
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    เรื่อง
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    กิจกรรม
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    ผู้รับผิดชอบ
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    สถานะ
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-data" class="bg-white divide-y divide-gray-200">
+                            <!-- Data will be loaded here -->
+                            <tr>
+                                <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">
+                                    กำลังโหลดข้อมูล...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
-            </section>
-        </main>
-    </div>
-
-    <script id="signaturePadTemplate" type="text/html">
-        <div class="signature-pad-container flex flex-col items-center">
-            <canvas id="signatureCanvas" class="border border-gray-300 rounded-md w-full h-48"></canvas>
-            <div class="flex space-x-2 mt-4">
-                <button id="clearSignature" class="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-md">ล้าง</button>
-                <button id="saveSignature" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md">บันทึก</button>
             </div>
         </div>
-    </script>
+
+        <!-- Data Section -->
+        <div id="section-data" class="tab-section hidden">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">ข้อมูลทั้งหมด</h2>
+                
+                <div class="mb-4">
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div class="flex flex-col md:flex-row gap-2 md:items-center">
+                            <label for="filter-activity" class="text-sm font-medium text-gray-700">กรองตามกิจกรรม:</label>
+                            <select id="filter-activity" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">ทั้งหมด</option>
+                                <option value="ตอบปัญหา">ตอบปัญหา</option>
+                                <option value="เขียนตามคำบอก">เขียนตามคำบอก</option>
+                                <option value="เขียนเรียงความ">เขียนเรียงความ</option>
+                                <option value="คัดลายมือ">คัดลายมือ</option>
+                                <option value="โต้วาที">โต้วาที</option>
+                                <option value="ทำนองเสนาะ/เสภา">ทำนองเสนาะ/เสภา</option>
+                                <option value="แต่งคำประพันธ์">แต่งคำประพันธ์</option>
+                                <option value="โอ้เอ้วิหารราย">โอ้เอ้วิหารราย</option>
+                                <option value="อ่านออกเสียงร้อยแก้ว">อ่านออกเสียงร้อยแก้ว</option>
+                                <option value="พูดสุนทรพจน์">พูดสุนทรพจน์</option>
+                                <option value="เกมคำคมต่อคำศัพท์ภาษาไทย">เกมคำคมต่อคำศัพท์ภาษาไทย</option>
+                                <option value="พูดภาษาถิ่น">พูดภาษาถิ่น</option>
+                                <option value="ประกวดตัวละคร">ประกวดตัวละคร</option>
+                                <option value="หนังสือเล่มเล็ก">หนังสือเล่มเล็ก</option>
+                                <option value="สารานุกรม (ห้องสมุด)">สารานุกรม (ห้องสมุด)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="relative">
+                            <input type="text" id="search-input" placeholder="ค้นหา..." 
+                                class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    วันที่
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    เลขที่หนังสือ
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    เรื่อง
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    กิจกรรม
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    ผู้รับผิดชอบ
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    สถานะ
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    การดำเนินการ
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="all-data" class="bg-white divide-y divide-gray-200">
+                            <!-- Data will be loaded here -->
+                            <tr>
+                                <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">
+                                    กำลังโหลดข้อมูล...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Section -->
+        <div id="section-stats" class="tab-section hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800">สถิติตามกิจกรรม</h2>
+                    <div class="h-80">
+                        <canvas id="activity-chart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800">สถิติตามผู้รับผิดชอบ</h2>
+                    <div class="h-80">
+                        <canvas id="responsible-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal for Document Details -->
+    <div id="detail-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">รายละเอียดหนังสือ</h3>
+                    <button id="close-detail-modal" class="text-gray-500 hover:text-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <div id="detail-content" class="space-y-4">
+                    <!-- Details will be loaded here -->
+                </div>
+                
+                <div class="mt-6 flex justify-end">
+                    <button id="close-detail-btn" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-all">
+                        ปิด
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Signature -->
+    <div id="signature-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">ลงลายมือชื่อรับทราบ</h3>
+                    <button id="close-signature-modal" class="text-gray-500 hover:text-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <p class="text-sm text-gray-600 mb-4">กรุณาลงลายมือชื่อในช่องด้านล่างเพื่อยืนยันการรับทราบเอกสาร</p>
+                
+                <div class="border border-gray-300 rounded-lg mb-4">
+                    <canvas id="signature-pad" class="signature-pad w-full h-48 rounded-lg"></canvas>
+                </div>
+                
+                <div class="flex justify-between">
+                    <button id="clear-signature" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-all">
+                        ล้างลายเซ็น
+                    </button>
+                    <button id="save-signature" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all">
+                        บันทึกลายเซ็น
+                    </button>
+                </div>
+                
+                <input type="hidden" id="document-id" value="">
+            </div>
+        </div>
+    </div>
 
     <script>
-        let LIFF_ID = '2005780370-27LZkWna'; // แทนที่ด้วย LIFF ID จริง
-        let botBasicId = '@233svlmc'; // แทนที่ด้วย LINE Official Account Basic ID
-        let userId = '';
-        let userName = '';
-        let userPicture = '';
-        let isLiffAvailable = false;
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzHrM4TXg-Ot2P1da3Jq6J5b6W7Ukn2jLr_0Mql8XvfY-XXm9G1_H2HUFIlTrqkSzgc/exec'; // แทนที่ด้วย URL จาก GAS deployment
 
-        const GOOGLE_SHEET_WEB_APP_URL = 'YOUR_GOOGLE_SHEET_WEB_APP_URL'; // แทนที่ด้วย URL จริง
-
-        function showToast(title, icon = 'success') {
-            Swal.mixin({
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 3000,
-                timerProgressBar: true,
-                didOpen: (toast) => {
-                    toast.addEventListener('mouseenter', Swal.stopTimer);
-                    toast.addEventListener('mouseleave', Swal.resumeTimer);
-                }
-            }).fire({
-                icon: icon,
-                title: title
-            });
-        }
-
-        function showPreloader() {
-            document.getElementById('preloader').classList.remove('hidden');
-        }
-
-        function hidePreloader() {
-            document.getElementById('preloader').classList.add('hidden');
-        }
-
-        function triggerConfetti() {
-            const confettiCount = 50;
-            for (let i = 0; i < confettiCount; i++) {
-                const confetti = document.createElement('div');
-                confetti.style.position = 'fixed';
-                confetti.style.width = '10px';
-                confetti.style.height = '10px';
-                confetti.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
-                confetti.style.top = `${Math.random() * 100}%`;
-                confetti.style.left = `${Math.random() * 100}%`;
-                confetti.style.opacity = Math.random();
-                confetti.style.transform = `translate(${Math.random() * 200 - 100}px, ${Math.random() * 200 - 100}px) rotate(${Math.random() * 360}deg)`;
-                confetti.style.transition = 'all 1s ease-out';
-                confetti.style.zIndex = '99999';
-                document.body.appendChild(confetti);
-
-                setTimeout(() => {
-                    confetti.style.transform = `translate(${Math.random() * 400 - 200}px, ${window.innerHeight + 20}px) rotate(${Math.random() * 720}deg)`;
-                    confetti.style.opacity = '0';
-                    setTimeout(() => confetti.remove(), 1000);
-                }, 10);
-            }
-        }
-
-        async function initializeLIFF() {
-            showPreloader();
-            try {
-                if (typeof liff === 'undefined') {
-                    throw new Error('LIFF SDK not loaded');
-                }
-
-                await liff.init({ 
-                    liffId: LIFF_ID, 
-                    withLoginOnExternalBrowser: true 
-                });
-
-                if (!liff.isInClient() && !liff.isLoggedIn()) {
-                    liff.login({ redirectUri: window.location.href });
-                    return;
-                }
-
-                if (liff.isLoggedIn()) {
-                    const profile = await liff.getProfile();
-                    userId = profile.userId;
-                    userName = profile.displayName;
-                    userPicture = profile.pictureUrl;
-
-                    document.getElementById('userName').textContent = userName;
-                    if (userPicture) {
-                        document.getElementById('userPicture').src = userPicture;
-                        document.getElementById('userPicture').classList.remove('hidden');
-                    }
-                    document.getElementById('userName').classList.remove('hidden');
-
-                    try {
-                        const friendshipStatus = await liff.getFriendship();
-                        if (!friendshipStatus.friendFlag) {
-                            const result = await Swal.fire({
-                                title: 'เดี๋ยวก่อน!',
-                                text: 'คุณยังไม่ได้เป็นเพื่อนกับเรา คุณต้องการเพิ่มเพื่อนหรือไม่?',
-                                icon: 'warning',
-                                showCancelButton: true,
-                                confirmButtonText: 'ใช่, เพิ่มเพื่อน',
-                                cancelButtonText: 'ไม่'
-                            });
-
-                            if (result.isConfirmed) {
-                                window.open('https://line.me/R/ti/p/' + botBasicId, '_blank');
-                            } else {
-                                showToast('คุณสามารถใช้งานได้ แต่บางฟังก์ชันอาจไม่สมบูรณ์หากไม่เป็นเพื่อนกับบอท', 'warning');
-                            }
-                        }
-                    } catch (friendshipError) {
-                        console.warn('Cannot check friendship status:', friendshipError);
-                        showToast('ไม่สามารถตรวจสอบสถานะการเป็นเพื่อนได้', 'warning');
-                    }
-
-                    isLiffAvailable = true;
-                } else {
-                    liff.login({ redirectUri: window.location.href });
-                }
-            } catch (error) {
-                console.error('LIFF initialization failed:', error);
-                showToast('ไม่สามารถเชื่อมต่อกับ LINE ได้ (กำลังใช้โหมดทดสอบ)', 'info');
-                
-                userId = 'test_user_' + Math.random().toString(36).substr(2, 9);
-                userName = 'ผู้ใช้ทดสอบ';
-                userPicture = '';
-                isLiffAvailable = false;
-                
-                document.getElementById('userName').textContent = userName;
-                document.getElementById('userName').classList.remove('hidden');
-            } finally {
-                hidePreloader();
-                await loadDeliveryHistory();
-                await loadActivityChart();
-            }
-        }
-
-        async function sendDataToGoogleSheet(data) {
-            showPreloader();
-            try {
-                const formData = new FormData();
-                for (const key in data) {
-                    if (data[key] !== null && data[key] !== undefined) {
-                        formData.append(key, data[key]);
-                    }
-                }
-
-                const response = await fetch(GOOGLE_SHEET_WEB_APP_URL, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'Accept': 'application/json'
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const result = await response.json();
-                if (result.status === 'success') {
-                    showToast('บันทึกข้อมูลเรียบร้อย!', 'success');
-                    triggerConfetti();
-                    await loadDeliveryHistory();
-                    await loadActivityChart();
-                    return true;
-                } else {
-                    throw new Error(result.message || 'Unknown error');
-                }
-            } catch (error) {
-                console.error('Error sending data to Google Sheet:', error);
-                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้: ' + error.message, 'error');
-                return false;
-            } finally {
-                hidePreloader();
-            }
-        }
-
-        async function fetchDataFromGoogleSheet() {
-            try {
-                const response = await fetch(GOOGLE_SHEET_WEB_APP_URL + '?action=getData', {
-                    headers: {
-                        'Accept': 'application/json'
-                    }
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const result = await response.json();
-                if (result.status === 'success') {
-                    return result.data || [];
-                } else {
-                    console.error('Error fetching data:', result.message);
-                    return [];
-                }
-            } catch (error) {
-                console.error('Error fetching data from Google Sheet:', error);
-                showToast('ไม่สามารถดึงข้อมูลได้', 'error');
-                return [];
-            }
-        }
-
-        async function updateSignatureInGoogleSheet(rowIndex, signatureBase64) {
-            showPreloader();
-            try {
-                const formData = new FormData();
-                formData.append('action', 'updateSignature');
-                formData.append('rowIndex', rowIndex);
-                formData.append('signature', signatureBase64);
-
-                const response = await fetch(GOOGLE_SHEET_WEB_APP_URL, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'Accept': 'application/json'
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const result = await response.json();
-                if (result.status === 'success') {
-                    showToast('บันทึกลายเซ็นเรียบร้อย!', 'success');
-                    triggerConfetti();
-                    await loadDeliveryHistory();
-                    return true;
-                } else {
-                    throw new Error(result.message || 'Unknown error');
-                }
-            } catch (error) {
-                console.error('Error updating signature:', error);
-                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถบันทึกลายเซ็นได้: ' + error.message, 'error');
-                return false;
-            } finally {
-                hidePreloader();
-            }
-        }
-
-        document.getElementById('recordForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const bookNumber = document.getElementById('bookNumber').value.trim();
-            const subject = document.getElementById('subject').value.trim();
-            const activity = document.getElementById('activity').value;
-            const responsibleTeacher = document.getElementById('responsibleTeacher').value;
-            const uploadFile = document.getElementById('uploadFile').files[0];
-
-            if (!bookNumber || !subject || !activity || !responsibleTeacher) {
-                showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'warning');
-                return;
-            }
-
-            const dataToSave = {
-                action: 'appendData',
-                timestamp: new Date().toLocaleString('th-TH', {
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
-                }),
-                bookNumber: bookNumber,
-                subject: subject,
-                activity: activity,
-                responsibleTeacher: responsibleTeacher,
-                uploaderId: userId,
-                uploaderName: userName,
-                fileName: '',
-                mimeType: '',
-                fileBase64: ''
-            };
-
-            if (uploadFile) {
-                if (uploadFile.size > 10 * 1024 * 1024) {
-                    showToast('ไฟล์มีขนาดใหญ่เกินไป (จำกัดที่ 10MB)', 'error');
-                    return;
-                }
-
-                showToast('กำลังอัพโหลดไฟล์...', 'info');
-                try {
-                    const reader = new FileReader();
-                    const fileBase64 = await new Promise((resolve, reject) => {
-                        reader.onload = () => resolve(reader.result.split(',')[1]);
-                        reader.onerror = reject;
-                        reader.readAsDataURL(uploadFile);
-                    });
-
-                    dataToSave.fileName = uploadFile.name;
-                    dataToSave.mimeType = uploadFile.type;
-                    dataToSave.fileBase64 = fileBase64;
-                } catch (error) {
-                    console.error('Error reading file:', error);
-                    showToast('ไม่สามารถอ่านไฟล์ได้', 'error');
-                    return;
-                }
-            }
-
-            const success = await sendDataToGoogleSheet(dataToSave);
-            if (success) {
-                document.getElementById('recordForm').reset();
-                
-                if (isLiffAvailable && liff.isInClient()) {
-                    await sendFlexMessage(dataToSave);
-                } else {
-                    showToast('บันทึกสำเร็จ แต่ไม่สามารถส่งข้อความ LINE ได้ในโหมดนี้', 'info');
-                }
-            }
+        // Preloader
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                document.getElementById('preloader').style.display = 'none';
+            }, 1500);
+            // Initialize LIFF if needed (commented for demo)
+            initializeApp();
         });
 
-        async function sendFlexMessage(data) {
-            if (!isLiffAvailable || !liff.isApiAvailable('shareTargetPicker') || !liff.isInClient()) {
-                console.log('ShareTargetPicker not available or not in LINE client');
-                showToast('ไม่สามารถส่งข้อความ LINE ได้ กรุณาใช้งานผ่าน LINE', 'warning');
-                return;
-            }
-
-            showToast('กำลังเตรียมข้อความสำหรับ LINE...', 'info');
-
-            const flexMessage = {
-                "type": "bubble",
-                "hero": {
-                    "type": "image",
-                    "url": "https://cdn.pixabay.com/photo/2021/01/04/10/37/document-5886567_1280.png",
-                    "size": "full",
-                    "aspectRatio": "20:13",
-                    "aspectMode": "cover",
-                    "action": {
-                        "type": "uri",
-                        "uri": window.location.href
-                    }
-                },
-                "body": {
-                    "type": "box",
-                    "layout": "vertical",
-                    "contents": [
-                        {
-                            "type": "text",
-                            "text": "แจ้งส่งหนังสือเข้าใหม่!",
-                            "weight": "bold",
-                            "size": "xl",
-                            "color": "#1DB446"
-                        },
-                        {
-                            "type": "box",
-                            "layout": "vertical",
-                            "margin": "lg",
-                            "spacing": "sm",
-                            "contents": [
-                                {
-                                    "type": "box",
-                                    "layout": "baseline",
-                                    "spacing": "sm",
-                                    "contents": [
-                                        {
-                                            "type": "text",
-                                            "text": "เลขที่:",
-                                            "color": "#aaaaaa",
-                                            "size": "sm",
-                                            "flex": 1
-                                        },
-                                        {
-                                            "type": "text",
-                                            "text": data.bookNumber,
-                                            "wrap": true,
-                                            "color": "#666666",
-                                            "size": "sm",
-                                            "flex": 5
-                                        }
-                                    ]
-                                },
-                                {
-                                    "type": "box",
-                                    "layout": "baseline",
-                                    "spacing": "sm",
-                                    "contents": [
-                                        {
-                                            "type": "text",
-                                            "text": "เรื่อง:",
-                                            "color": "#aaaaaa",
-                                            "size": "sm",
-                                            "flex": 1
-                                        },
-                                        {
-                                            "type": "text",
-                                            "text": data.subject,
-                                            "wrap": true,
-                                            "color": "#666666",
-                                            "size": "sm",
-                                            "flex": 5
-                                        }
-                                    ]
-                                },
-                                {
-                                    "type": "box",
-                                    "layout": "baseline",
-                                    "spacing": "sm",
-                                    "contents": [
-                                        {
-                                            "type": "text",
-                                            "text": "กิจกรรม:",
-                                            "color": "#aaaaaa",
-                                            "size": "sm",
-                                            "flex": 1
-                                        },
-                                        {
-                                            "type": "text",
-                                            "text": data.activity,
-                                            "wrap": true,
-                                            "color": "#666666",
-                                            "size": "sm",
-                                            "flex": 5
-                                        }
-                                    ]
-                                },
-                                {
-                                    "type": "box",
-                                    "layout": "baseline",
-                                    "spacing": "sm",
-                                    "contents": [
-                                        {
-                                            "type": "text",
-                                            "text": "มอบให้:",
-                                            "color": "#aaaaaa",
-                                            "size": "sm",
-                                            "flex": 1
-                                        },
-                                        {
-                                            "type": "text",
-                                            "text": data.responsibleTeacher,
-                                            "wrap": true,
-                                            "color": "#666666",
-                                            "size": "sm",
-                                            "flex": 5
-                                        }
-                                    ]
-                                },
-                                {
-                                    "type": "box",
-                                    "layout": "baseline",
-                                    "spacing": "sm",
-                                    "contents": [
-                                        {
-                                            "type": "text",
-                                            "text": "ผู้แจ้ง:",
-                                            "color": "#aaaaaa",
-                                            "size": "sm",
-                                            "flex": 1
-                                        },
-                                        {
-                                            "type": "text",
-                                            "text": data.uploaderName,
-                                            "wrap": true,
-                                            "color": "#666666",
-                                            "size": "sm",
-                                            "flex": 5
-                                        }
-                                    ]
-                                }
-                            ]
-                        }
-                    ]
-                },
-                "footer": {
-                    "type": "box",
-                    "layout": "vertical",
-                    "spacing": "sm",
-                    "contents": [
-                        {
-                            "type": "button",
-                            "style": "link",
-                            "height": "sm",
-                            "action": {
-                                "type": "uri",
-                                "label": "ดูข้อมูลทั้งหมด",
-                                "uri": window.location.href
-                            }
-                        }
-                    ],
-                    "flex": 0
-                }
-            };
-
-            if (data.fileName) {
-                flexMessage.footer.contents.unshift({
-                    "type": "button",
-                    "style": "link",
-                    "height": "sm",
-                    "action": {
-                        "type": "uri",
-                        "label": "มีไฟล์แนบ",
-                        "uri": window.location.href
-                    }
-                });
-            }
-
-            try {
-                await liff.shareTargetPicker([
-                    {
-                        "type": "flex",
-                        "altText": "แจ้งส่งหนังสือเข้า: " + data.subject,
-                        "contents": flexMessage
-                    }
-                ], {
-                    isMultiple: false
-                });
-                showToast('ส่งข้อความเรียบร้อย!', 'success');
-            } catch (error) {
-                console.error('Error sending Flex Message:', error);
-                showToast('ไม่สามารถส่งข้อความ LINE ได้: ' + error.message, 'error');
-            }
+        function initializeApp() {
+            initTabs();
+            fetchRecentData();
+            fetchAllData();
+            initCharts();
+            initFormSubmission();
+            initFileUpload();
+            initSignaturePad();
+            initModals();
+            initSearchAndFilter();
         }
 
-        async function loadDeliveryHistory() {
-            const tableBody = document.getElementById('latestRecordsBody');
-            tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500">กำลังโหลดข้อมูล...</td></tr>';
-
-            const records = await fetchDataFromGoogleSheet();
-            tableBody.innerHTML = '';
-
-            if (records.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500">ยังไม่มีข้อมูลบันทึก</td></tr>';
-                return;
-            }
-
-            const latest5Records = records.slice(-5).reverse();
-
-            latest5Records.forEach((record, index) => {
-                const row = tableBody.insertRow();
-                const actualIndex = records.indexOf(record);
-
-                row.insertCell().textContent = records.length - actualIndex;
-                
-                row.insertCell().textContent = record.bookNumber || '';
-                
-                const activityCell = row.insertCell();
-                activityCell.textContent = record.activity || '';
-                activityCell.className = 'max-w-xs truncate';
-                
-                const teacherCell = row.insertCell();
-                teacherCell.textContent = record.responsibleTeacher || '';
-                teacherCell.className = 'max-w-xs truncate';
-
-                const signatureCell = row.insertCell();
-                if (record.signature && record.signature !== '') {
-                    const img = document.createElement('img');
-                    img.src = record.signature;
-                    img.classList.add('w-24', 'h-12', 'object-contain', 'border', 'border-gray-300', 'rounded', 'cursor-pointer');
-                    img.onclick = () => showImageModal(record.signature);
-                    signatureCell.appendChild(img);
-                } else {
-                    signatureCell.textContent = 'ยังไม่มีลายเซ็น';
-                    signatureCell.className = 'text-gray-400 text-sm';
-                }
-
-                const actionCell = row.insertCell();
-                actionCell.className = 'space-x-2';
-
-                const viewDetailsBtn = document.createElement('button');
-                viewDetailsBtn.textContent = 'ดู';
-                viewDetailsBtn.classList.add('bg-primary-blue', 'hover:bg-indigo-700', 'text-white', 'py-1', 'px-3', 'rounded-md', 'text-sm');
-                viewDetailsBtn.onclick = () => showRecordDetails(record);
-
-                const acknowledgeBtn = document.createElement('button');
-                acknowledgeBtn.textContent = 'รับทราบ';
-                acknowledgeBtn.classList.add('bg-accent-yellow', 'hover:bg-yellow-600', 'text-white', 'py-1', 'px-3', 'rounded-md', 'text-sm');
-                acknowledgeBtn.onclick = () => showSignaturePad(actualIndex);
-
-                if (record.signature && record.signature !== '') {
-                    acknowledgeBtn.disabled = true;
-                    acknowledgeBtn.classList.remove('bg-accent-yellow', 'hover:bg-yellow-600');
-                    acknowledgeBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
-                    acknowledgeBtn.textContent = 'รับทราบแล้ว';
-                }
-
-                actionCell.appendChild(viewDetailsBtn);
-                actionCell.appendChild(acknowledgeBtn);
-            });
-        }
-
-        function showImageModal(imageSrc) {
-            Swal.fire({
-                imageUrl: imageSrc,
-                imageWidth: 400,
-                imageHeight: 200,
-                imageAlt: 'ลายเซ็น',
-                showConfirmButton: false,
-                showCloseButton: true
-            });
-        }
-
-        async function showRecordDetails(record) {
-            let fileInfo = '';
-            if (record.fileName && record.fileName !== '') {
-                if (record.fileUrl && record.fileUrl !== '') {
-                    fileInfo = `<p><strong>ไฟล์แนบ:</strong> <a href="${record.fileUrl}" target="_blank" class="text-blue-600 hover:underline">${record.fileName}</a></p>`;
-                } else {
-                    fileInfo = `<p><strong>ไฟล์แนบ:</strong> ${record.fileName}</p>`;
-                }
-            } else {
-                fileInfo = '<p><strong>ไฟล์แนบ:</strong> ไม่มี</p>';
-            }
-
-            let signatureImage = '';
-            if (record.signature && record.signature !== '') {
-                signatureImage = `<p><strong>ลายเซ็น:</strong><br><img src="${record.signature}" class="w-full h-auto max-w-xs mt-2 border border-gray-300 rounded cursor-pointer" onclick="window.open('${record.signature}', '_blank')"></p>`;
-            } else {
-                signatureImage = '<p><strong>ลายเซ็น:</strong> ยังไม่มี</p>';
-            }
-
-            Swal.fire({
-                title: 'รายละเอียดหนังสือ',
-                html: `
-                    <div class="text-left space-y-2">
-                        <p><strong>เลขที่หนังสือ:</strong> ${record.bookNumber || ''}</p>
-                        <p><strong>เรื่องที่แจ้ง:</strong> ${record.subject || ''}</p>
-                        <p><strong>กิจกรรม:</strong> ${record.activity || ''}</p>
-                        <p><strong>มอบครูผู้รับผิดชอบ:</strong> ${record.responsibleTeacher || ''}</p>
-                        <p><strong>ผู้แจ้ง:</strong> ${record.uploaderName || ''}</p>
-                        <p><strong>วันที่/เวลา:</strong> ${record.timestamp || ''}</p>
-                        ${fileInfo}
-                        ${signatureImage}
-                    </div>
-                `,
-                icon: 'info',
-                confirmButtonText: 'ปิด',
-                width: '600px',
-                customClass: {
-                    htmlContainer: 'text-sm'
-                }
-            });
-        }
-
-        function showSignaturePad(rowIndex) {
-            const signaturePadHtml = document.getElementById('signaturePadTemplate').innerHTML;
+        function initTabs() {
+            const tabs = ['form', 'data', 'stats'];
+            const tabButtons = tabs.map(tab => document.getElementById(`tab-${tab}`));
+            const sections = tabs.map(tab => document.getElementById(`section-${tab}`));
             
-            Swal.fire({
-                title: 'ลงลายเซ็นรับทราบเอกสาร',
-                html: signaturePadHtml,
-                showConfirmButton: false,
-                width: '600px',
-                didOpen: () => {
-                    const canvas = document.getElementById('signatureCanvas');
-                    const signaturePad = new SignaturePad(canvas, {
-                        backgroundColor: 'rgb(255, 255, 255)',
-                        penColor: 'rgb(0, 0, 0)'
+            tabButtons.forEach((button, index) => {
+                button.addEventListener('click', () => {
+                    tabButtons.forEach(btn => {
+                        btn.classList.remove('tab-active');
+                        btn.classList.add('text-gray-600');
                     });
-
-                    function resizeCanvas() {
-                        const ratio = Math.max(window.devicePixelRatio || 1, 1);
-                        canvas.width = canvas.offsetWidth * ratio;
-                        canvas.height = canvas.offsetHeight * ratio;
-                        canvas.getContext('2d').scale(ratio, ratio);
-                        signaturePad.clear();
-                    }
+                    button.classList.add('tab-active');
+                    button.classList.remove('text-gray-600');
                     
-                    window.addEventListener('resize', resizeCanvas);
-                    resizeCanvas();
-
-                    document.getElementById('clearSignature').onclick = () => {
-                        signaturePad.clear();
-                    };
-
-                    document.getElementById('saveSignature').onclick = async () => {
-                        if (signaturePad.isEmpty()) {
-                            showToast('กรุณาลงลายเซ็นก่อน', 'warning');
-                            return;
-                        }
-
-                        const signatureDataUrl = signaturePad.toDataURL('image/png');
-                        const success = await updateSignatureInGoogleSheet(rowIndex, signatureDataUrl);
-                        
-                        if (success) {
-                            Swal.close();
-                        }
-                    };
-                }
+                    sections.forEach(section => section.classList.add('hidden'));
+                    sections[index].classList.remove('hidden');
+                });
+            });
+            
+            document.getElementById('view-all-btn').addEventListener('click', () => {
+                tabButtons[0].classList.remove('tab-active');
+                tabButtons[0].classList.add('text-gray-600');
+                tabButtons[1].classList.add('tab-active');
+                tabButtons[1].classList.remove('text-gray-600');
+                
+                sections[0].classList.add('hidden');
+                sections[1].classList.remove('hidden');
             });
         }
 
-        let activityChartInstance = null;
-
-        async function loadActivityChart() {
-            const records = await fetchDataFromGoogleSheet();
-            const activityCounts = {};
-
-            records.forEach(record => {
-                const activity = record.activity || 'ไม่ระบุ';
-                activityCounts[activity] = (activityCounts[activity] || 0) + 1;
-            });
-
-            const labels = Object.keys(activityCounts);
-            const data = Object.values(activityCounts);
-
-            const ctx = document.getElementById('activityChart').getContext('2d');
-
-            if (activityChartInstance) {
-                activityChartInstance.destroy();
+        async function fetchRecentData() {
+            try {
+                const response = await fetch(`${GAS_URL}?action=getRecent`);
+                if (!response.ok) throw new Error('Failed to fetch recent data');
+                const data = await response.json();
+                renderTableData('recent-data', data, false);
+            } catch (error) {
+                console.error(error);
+                Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถโหลดข้อมูลล่าสุดได้' });
             }
+        }
 
-            activityChartInstance = new Chart(ctx, {
+        async function fetchAllData(activityFilter = '', searchTerm = '') {
+            try {
+                const params = new URLSearchParams({ action: 'getAll', activity: activityFilter, search: searchTerm });
+                const response = await fetch(`${GAS_URL}?${params}`);
+                if (!response.ok) throw new Error('Failed to fetch all data');
+                const data = await response.json();
+                renderTableData('all-data', data, true);
+            } catch (error) {
+                console.error(error);
+                Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถโหลดข้อมูลทั้งหมดได้' });
+            }
+        }
+
+        async function fetchStats() {
+            try {
+                const response = await fetch(`${GAS_URL}?action=getStats`);
+                if (!response.ok) throw new Error('Failed to fetch stats');
+                return await response.json();
+            } catch (error) {
+                console.error(error);
+                Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถโหลดสถิติได้' });
+                return { activityStats: {}, responsibleStats: {} };
+            }
+        }
+
+        function renderTableData(containerId, data, includeActions = false) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            if (data.length === 0) {
+                container.innerHTML = `<tr><td colspan="${includeActions ? 7 : 6}" class="px-6 py-4 text-center text-sm text-gray-500">ไม่พบข้อมูล</td></tr>`;
+                return;
+            }
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                row.dataset.id = item.id;
+                const formattedDate = formatDate(item.date);
+                let html = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formattedDate}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.docNumber}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${item.subject}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${item.activity}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${item.responsible}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${getStatusBadge(item.status, item.signature)}</td>
+                `;
+                if (includeActions) {
+                    html += `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
+                            <button class="view-details text-blue-600 hover:text-blue-800 mr-3">รายละเอียด</button>
+                            ${item.status === 'รอการรับทราบ' ? `<button class="acknowledge-btn bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700">รับทราบ</button>` : `<button class="view-signature text-gray-600 hover:text-gray-800">ดูลายเซ็น</button>`}
+                        </td>
+                    `;
+                }
+                row.innerHTML = html;
+                container.appendChild(row);
+            });
+            // Add event listeners
+            container.querySelectorAll('.view-details').forEach(btn => btn.addEventListener('click', (e) => showDetailModal(e.target.closest('tr').dataset.id)));
+            container.querySelectorAll('.acknowledge-btn').forEach(btn => btn.addEventListener('click', (e) => showSignatureModal(e.target.closest('tr').dataset.id)));
+            container.querySelectorAll('.view-signature').forEach(btn => btn.addEventListener('click', (e) => {
+                const id = e.target.closest('tr').dataset.id;
+                showSignatureView(id);
+            }));
+        }
+
+        async function initCharts() {
+            const stats = await fetchStats();
+            const activityCtx = document.getElementById('activity-chart').getContext('2d');
+            new Chart(activityCtx, {
                 type: 'bar',
                 data: {
-                    labels: labels,
+                    labels: Object.keys(stats.activityStats),
                     datasets: [{
-                        label: 'จำนวนหนังสือแยกตามกิจกรรม',
-                        data: data,
-                        backgroundColor: [
-                            'rgba(79, 70, 229, 0.8)',
-                            'rgba(16, 185, 129, 0.8)',
-                            'rgba(245, 158, 11, 0.8)',
-                            'rgba(109, 40, 217, 0.8)',
-                            'rgba(239, 68, 68, 0.8)',
-                            'rgba(59, 130, 246, 0.8)',
-                            'rgba(34, 197, 94, 0.8)',
-                            'rgba(168, 85, 247, 0.8)',
-                            'rgba(236, 72, 153, 0.8)',
-                            'rgba(20, 184, 166, 0.8)',
-                            'rgba(251, 146, 60, 0.8)'
-                        ],
-                        borderColor: [
-                            'rgba(79, 70, 229, 1)',
-                            'rgba(16, 185, 129, 1)',
-                            'rgba(245, 158, 11, 1)',
-                            'rgba(109, 40, 217, 1)',
-                            'rgba(239, 68, 68, 1)',
-                            'rgba(59, 130, 246, 1)',
-                            'rgba(34, 197, 94, 1)',
-                            'rgba(168, 85, 247, 1)',
-                            'rgba(236, 72, 153, 1)',
-                            'rgba(20, 184, 166, 1)',
-                            'rgba(251, 146, 60, 1)'
-                        ],
-                        borderWidth: 2
+                        label: 'จำนวนกิจกรรม',
+                        data: Object.values(stats.activityStats),
+                        backgroundColor: 'rgba(56, 182, 255, 0.7)',
+                        borderColor: 'rgba(56, 182, 255, 1)',
+                        borderWidth: 1
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                precision: 0,
-                                font: {
-                                    size: 12
-                                }
-                            }
-                        },
-                        x: {
-                            ticks: {
-                                font: {
-                                    size: 10
-                                },
-                                maxRotation: 45
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return context.parsed.y + ' รายการ';
-                                }
-                            }
-                        }
-                    }
+                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+                    plugins: { legend: { display: false }, title: { display: true, text: 'จำนวนกิจกรรมแยกตามประเภท', font: { size: 16 } } }
+                }
+            });
+            const responsibleCtx = document.getElementById('responsible-chart').getContext('2d');
+            new Chart(responsibleCtx, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(stats.responsibleStats),
+                    datasets: [{
+                        data: Object.values(stats.responsibleStats),
+                        backgroundColor: ['rgba(255, 87, 87, 0.7)', 'rgba(82, 113, 255, 0.7)', 'rgba(56, 182, 255, 0.7)', 'rgba(255, 250, 221, 0.7)', 'rgba(255, 159, 67, 0.7)', 'rgba(46, 213, 115, 0.7)', 'rgba(155, 89, 182, 0.7)'],
+                        borderColor: ['rgba(255, 87, 87, 1)', 'rgba(82, 113, 255, 1)', 'rgba(56, 182, 255, 1)', 'rgba(255, 250, 221, 1)', 'rgba(255, 159, 67, 1)', 'rgba(46, 213, 115, 1)', 'rgba(155, 89, 182, 1)'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { boxWidth: 15, font: { size: 11 } } }, title: { display: true, text: 'จำนวนกิจกรรมแยกตามผู้รับผิดชอบ', font: { size: 16 } } }
                 }
             });
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            initializeLIFF();
-        });
+        function initFormSubmission() {
+            const form = document.getElementById('document-form');
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const data = {
+                    action: 'saveDocument',
+                    date: new Date().toISOString().split('T')[0],
+                    docNumber: document.getElementById('doc-number').value,
+                    subject: document.getElementById('doc-subject').value,
+                    activity: document.getElementById('activity').value,
+                    responsible: document.getElementById('responsible').value,
+                    fileBase64: '',
+                    fileName: '',
+                    fileType: ''
+                };
+                const fileInput = document.getElementById('file-upload');
+                if (fileInput.files[0]) {
+                    data.fileBase64 = await fileToBase64(fileInput.files[0]);
+                    data.fileName = fileInput.files[0].name;
+                    data.fileType = fileInput.files[0].type;
+                }
+                try {
+                    const response = await fetch(GAS_URL, {
+                        method: 'POST',
+                        body: JSON.stringify(data),
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        Swal.fire({ icon: 'success', title: 'บันทึกข้อมูลสำเร็จ' }).then(() => {
+                            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                            // Optional: Ask to share to LINE
+                        });
+                        fetchRecentData();
+                        fetchAllData();
+                        form.reset();
+                        document.getElementById('file-name').textContent = '';
+                    } else {
+                        throw new Error(result.message);
+                    }
+                } catch (error) {
+                    Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message });
+                }
+            });
+        }
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        function initFileUpload() {
+            const fileUpload = document.getElementById('file-upload');
+            const fileName = document.getElementById('file-name');
+            fileUpload.addEventListener('change', function() {
+                fileName.textContent = this.files[0] ? this.files[0].name : '';
+            });
+        }
+
+        let signaturePad;
+        function initSignaturePad() {
+            const canvas = document.getElementById('signature-pad');
+            signaturePad = new SignaturePad(canvas, { backgroundColor: 'rgb(255, 255, 255)', penColor: 'rgb(0, 0, 0)' });
+            document.getElementById('clear-signature').addEventListener('click', () => signaturePad.clear());
+            document.getElementById('save-signature').addEventListener('click', async () => {
+                if (signaturePad.isEmpty()) {
+                    Swal.fire({ icon: 'warning', title: 'ลายเซ็นว่างเปล่า', text: 'กรุณาลงลายมือชื่อก่อนบันทึก' });
+                    return;
+                }
+                const signatureData = signaturePad.toDataURL();
+                const documentId = document.getElementById('document-id').value;
+                try {
+                    const response = await fetch(GAS_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'saveSignature', id: documentId, signature: signatureData }),
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        Swal.fire({ icon: 'success', title: 'บันทึกลายเซ็นสำเร็จ' }).then(() => confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } }));
+                        document.getElementById('signature-modal').style.display = 'none';
+                        fetchRecentData();
+                        fetchAllData();
+                    } else {
+                        throw new Error(result.message);
+                    }
+                } catch (error) {
+                    Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message });
+                }
+            });
+        }
+
+        function initModals() {
+            document.getElementById('close-detail-modal').addEventListener('click', () => document.getElementById('detail-modal').style.display = 'none');
+            document.getElementById('close-detail-btn').addEventListener('click', () => document.getElementById('detail-modal').style.display = 'none');
+            document.getElementById('close-signature-modal').addEventListener('click', () => document.getElementById('signature-modal').style.display = 'none');
+            window.addEventListener('click', (event) => {
+                if (event.target === document.getElementById('detail-modal')) document.getElementById('detail-modal').style.display = 'none';
+                if (event.target === document.getElementById('signature-modal')) document.getElementById('signature-modal').style.display = 'none';
+            });
+        }
+
+        async function showDetailModal(id) {
+            try {
+                const response = await fetch(`${GAS_URL}?action=getDetail&id=${id}`);
+                if (!response.ok) throw new Error('Failed to fetch detail');
+                const item = await response.json();
+                const detailContent = document.getElementById('detail-content');
+                const formattedDate = formatDate(item.date);
+                detailContent.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><p class="text-sm font-medium text-gray-500">วันที่</p><p class="text-lg">${formattedDate}</p></div>
+                        <div><p class="text-sm font-medium text-gray-500">เลขที่หนังสือ</p><p class="text-lg">${item.docNumber}</p></div>
+                    </div>
+                    <div><p class="text-sm font-medium text-gray-500">เรื่อง</p><p class="text-lg">${item.subject}</p></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><p class="text-sm font-medium text-gray-500">กิจกรรม</p><p class="text-lg">${item.activity}</p></div>
+                        <div><p class="text-sm font-medium text-gray-500">ผู้รับผิดชอบ</p><p class="text-lg">${item.responsible}</p></div>
+                    </div>
+                    <div><p class="text-sm font-medium text-gray-500">สถานะ</p><p class="text-lg">${item.status}</p></div>
+                    ${item.signature ? `<div><p class="text-sm font-medium text-gray-500">ลายเซ็นรับทราบ</p><img src="${item.signature}" alt="ลายเซ็น" class="mt-2 border border-gray-300 rounded-lg" style="max-height: 100px;"></div>` : ''}
+                    ${item.file ? `<div><p class="text-sm font-medium text-gray-500">ไฟล์แนบ</p><a href="https://drive.google.com/file/d/${item.file}/view" class="text-blue-600 hover:text-blue-800 flex items-center mt-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd" /></svg>${item.fileName || 'ไฟล์แนบ'}</a></div>` : ''}
+                `;
+                document.getElementById('detail-modal').style.display = 'flex';
+            } catch (error) {
+                Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถโหลดรายละเอียดได้' });
+            }
+        }
+
+        function showSignatureModal(id) {
+            document.getElementById('document-id').value = id;
+            signaturePad.clear();
+            document.getElementById('signature-modal').style.display = 'flex';
+        }
+
+        async function showSignatureView(id) {
+            try {
+                const response = await fetch(`${GAS_URL}?action=getDetail&id=${id}`);
+                const item = await response.json();
+                if (item.signature) {
+                    Swal.fire({
+                        title: 'ลายเซ็นรับทราบ',
+                        imageUrl: item.signature,
+                        imageAlt: 'ลายเซ็น',
+                        confirmButtonText: 'ปิด'
+                    });
+                } else {
+                    Swal.fire({ icon: 'info', title: 'ไม่มีลายเซ็น' });
+                }
+            } catch (error) {
+                Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด' });
+            }
+        }
+
+        function initSearchAndFilter() {
+            const searchInput = document.getElementById('search-input');
+            const filterActivity = document.getElementById('filter-activity');
+            searchInput.addEventListener('input', () => fetchAllData(filterActivity.value, searchInput.value));
+            filterActivity.addEventListener('change', () => fetchAllData(filterActivity.value, searchInput.value));
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+        }
+
+        function getStatusBadge(status, signature) {
+            const color = status === 'รับทราบแล้ว' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
+            return `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${color}">${status}</span>`;
+        }
+
+        // Optional: Share to LINE (simulate or use LIFF)
+        // ...
     </script>
 </body>
 </html>
