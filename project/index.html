@@ -178,18 +178,15 @@
     </script>
 
     <script>
-        // Global variables
-        let LIFF_ID = '2005780370-27LZkWna'; // แทนที่ด้วย LIFF ID ของคุณ
-        let botBasicId = '@233svlmc'; // แทนที่ด้วย LINE Official Account Basic ID ของคุณ
+        let LIFF_ID = '2005780370-27LZkWna'; // แทนที่ด้วย LIFF ID จริง
+        let botBasicId = '@233svlmc'; // แทนที่ด้วย LINE Official Account Basic ID
         let userId = '';
         let userName = '';
         let userPicture = '';
         let isLiffAvailable = false;
 
-        // แทนที่ด้วย URL ของ Google Apps Script Web App ของคุณ
-        const GOOGLE_SHEET_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzHrM4TXg-Ot2P1da3Jq6J5b6W7Ukn2jLr_0Mql8XvfY-XXm9G1_H2HUFIlTrqkSzgc/exec';
+        const GOOGLE_SHEET_WEB_APP_URL = 'YOUR_GOOGLE_SHEET_WEB_APP_URL'; // แทนที่ด้วย URL จริง
 
-        // Utility Functions
         function showToast(title, icon = 'success') {
             Swal.mixin({
                 toast: true,
@@ -239,11 +236,9 @@
             }
         }
 
-        // LIFF Initialization
         async function initializeLIFF() {
             showPreloader();
             try {
-                // ตรวจสอบว่า LIFF SDK โหลดแล้วหรือยัง
                 if (typeof liff === 'undefined') {
                     throw new Error('LIFF SDK not loaded');
                 }
@@ -253,13 +248,17 @@
                     withLoginOnExternalBrowser: true 
                 });
 
+                if (!liff.isInClient() && !liff.isLoggedIn()) {
+                    liff.login({ redirectUri: window.location.href });
+                    return;
+                }
+
                 if (liff.isLoggedIn()) {
                     const profile = await liff.getProfile();
                     userId = profile.userId;
                     userName = profile.displayName;
                     userPicture = profile.pictureUrl;
 
-                    // แสดงข้อมูลผู้ใช้
                     document.getElementById('userName').textContent = userName;
                     if (userPicture) {
                         document.getElementById('userPicture').src = userPicture;
@@ -267,7 +266,6 @@
                     }
                     document.getElementById('userName').classList.remove('hidden');
 
-                    // ตรวจสอบว่าเป็นเพื่อนหรือไม่
                     try {
                         const friendshipStatus = await liff.getFriendship();
                         if (!friendshipStatus.friendFlag) {
@@ -288,6 +286,7 @@
                         }
                     } catch (friendshipError) {
                         console.warn('Cannot check friendship status:', friendshipError);
+                        showToast('ไม่สามารถตรวจสอบสถานะการเป็นเพื่อนได้', 'warning');
                     }
 
                     isLiffAvailable = true;
@@ -298,7 +297,6 @@
                 console.error('LIFF initialization failed:', error);
                 showToast('ไม่สามารถเชื่อมต่อกับ LINE ได้ (กำลังใช้โหมดทดสอบ)', 'info');
                 
-                // กำหนดค่าเริ่มต้นสำหรับโหมดทดสอบ
                 userId = 'test_user_' + Math.random().toString(36).substr(2, 9);
                 userName = 'ผู้ใช้ทดสอบ';
                 userPicture = '';
@@ -308,13 +306,11 @@
                 document.getElementById('userName').classList.remove('hidden');
             } finally {
                 hidePreloader();
-                // โหลดข้อมูลเมื่อเริ่มต้น
                 await loadDeliveryHistory();
                 await loadActivityChart();
             }
         }
 
-        // Google Sheets Integration Functions
         async function sendDataToGoogleSheet(data) {
             showPreloader();
             try {
@@ -327,7 +323,10 @@
 
                 const response = await fetch(GOOGLE_SHEET_WEB_APP_URL, {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    headers: {
+                        'Accept': 'application/json'
+                    }
                 });
 
                 if (!response.ok) {
@@ -355,7 +354,11 @@
 
         async function fetchDataFromGoogleSheet() {
             try {
-                const response = await fetch(GOOGLE_SHEET_WEB_APP_URL + '?action=getData');
+                const response = await fetch(GOOGLE_SHEET_WEB_APP_URL + '?action=getData', {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
                 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -370,6 +373,7 @@
                 }
             } catch (error) {
                 console.error('Error fetching data from Google Sheet:', error);
+                showToast('ไม่สามารถดึงข้อมูลได้', 'error');
                 return [];
             }
         }
@@ -384,7 +388,10 @@
 
                 const response = await fetch(GOOGLE_SHEET_WEB_APP_URL, {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    headers: {
+                        'Accept': 'application/json'
+                    }
                 });
 
                 if (!response.ok) {
@@ -409,7 +416,6 @@
             }
         }
 
-        // Form Submission Handler
         document.getElementById('recordForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -419,7 +425,6 @@
             const responsibleTeacher = document.getElementById('responsibleTeacher').value;
             const uploadFile = document.getElementById('uploadFile').files[0];
 
-            // ตรวจสอบข้อมูลพื้นฐาน
             if (!bookNumber || !subject || !activity || !responsibleTeacher) {
                 showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'warning');
                 return;
@@ -446,9 +451,7 @@
                 fileBase64: ''
             };
 
-            // จัดการไฟล์อัพโหลด
             if (uploadFile) {
-                // ตรวจสอบขนาดไฟล์ (จำกัดที่ 10MB)
                 if (uploadFile.size > 10 * 1024 * 1024) {
                     showToast('ไฟล์มีขนาดใหญ่เกินไป (จำกัดที่ 10MB)', 'error');
                     return;
@@ -477,17 +480,18 @@
             if (success) {
                 document.getElementById('recordForm').reset();
                 
-                // ส่ง Flex Message หากมี LIFF
-                if (isLiffAvailable) {
+                if (isLiffAvailable && liff.isInClient()) {
                     await sendFlexMessage(dataToSave);
+                } else {
+                    showToast('บันทึกสำเร็จ แต่ไม่สามารถส่งข้อความ LINE ได้ในโหมดนี้', 'info');
                 }
             }
         });
 
-        // Flex Message for LINE Share
         async function sendFlexMessage(data) {
-            if (!isLiffAvailable || !liff.isApiAvailable('shareTargetPicker')) {
-                console.log('ShareTargetPicker ไม่พร้อมใช้งาน');
+            if (!isLiffAvailable || !liff.isApiAvailable('shareTargetPicker') || !liff.isInClient()) {
+                console.log('ShareTargetPicker not available or not in LINE client');
+                showToast('ไม่สามารถส่งข้อความ LINE ได้ กรุณาใช้งานผ่าน LINE', 'warning');
                 return;
             }
 
@@ -657,7 +661,6 @@
                 }
             };
 
-            // เพิ่มปุ่มดาวน์โหลดไฟล์หากมี
             if (data.fileName) {
                 flexMessage.footer.contents.unshift({
                     "type": "button",
@@ -678,15 +681,16 @@
                         "altText": "แจ้งส่งหนังสือเข้า: " + data.subject,
                         "contents": flexMessage
                     }
-                ]);
+                ], {
+                    isMultiple: false
+                });
                 showToast('ส่งข้อความเรียบร้อย!', 'success');
             } catch (error) {
                 console.error('Error sending Flex Message:', error);
-                showToast('ไม่สามารถส่งข้อความได้', 'error');
+                showToast('ไม่สามารถส่งข้อความ LINE ได้: ' + error.message, 'error');
             }
         }
 
-        // Data Display Functions
         async function loadDeliveryHistory() {
             const tableBody = document.getElementById('latestRecordsBody');
             tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500">กำลังโหลดข้อมูล...</td></tr>';
@@ -705,23 +709,18 @@
                 const row = tableBody.insertRow();
                 const actualIndex = records.indexOf(record);
 
-                // ลำดับ
                 row.insertCell().textContent = records.length - actualIndex;
                 
-                // เลขที่หนังสือ
                 row.insertCell().textContent = record.bookNumber || '';
                 
-                // กิจกรรม
                 const activityCell = row.insertCell();
                 activityCell.textContent = record.activity || '';
                 activityCell.className = 'max-w-xs truncate';
                 
-                // ผู้รับผิดชอบ
                 const teacherCell = row.insertCell();
                 teacherCell.textContent = record.responsibleTeacher || '';
                 teacherCell.className = 'max-w-xs truncate';
 
-                // ลายเซ็น
                 const signatureCell = row.insertCell();
                 if (record.signature && record.signature !== '') {
                     const img = document.createElement('img');
@@ -734,7 +733,6 @@
                     signatureCell.className = 'text-gray-400 text-sm';
                 }
 
-                // ปุ่มดำเนินการ
                 const actionCell = row.insertCell();
                 actionCell.className = 'space-x-2';
 
@@ -748,7 +746,6 @@
                 acknowledgeBtn.classList.add('bg-accent-yellow', 'hover:bg-yellow-600', 'text-white', 'py-1', 'px-3', 'rounded-md', 'text-sm');
                 acknowledgeBtn.onclick = () => showSignaturePad(actualIndex);
 
-                // ถ้ามีลายเซ็นแล้ว ปิดการใช้งานปุ่มรับทราบ
                 if (record.signature && record.signature !== '') {
                     acknowledgeBtn.disabled = true;
                     acknowledgeBtn.classList.remove('bg-accent-yellow', 'hover:bg-yellow-600');
@@ -861,14 +858,12 @@
             });
         }
 
-        // Chart Functions
         let activityChartInstance = null;
 
         async function loadActivityChart() {
             const records = await fetchDataFromGoogleSheet();
             const activityCounts = {};
 
-            // นับจำนวนแต่ละกิจกรรม
             records.forEach(record => {
                 const activity = record.activity || 'ไม่ระบุ';
                 activityCounts[activity] = (activityCounts[activity] || 0) + 1;
@@ -879,12 +874,10 @@
 
             const ctx = document.getElementById('activityChart').getContext('2d');
 
-            // ทำลาย chart เก่าถ้ามี
             if (activityChartInstance) {
                 activityChartInstance.destroy();
             }
 
-            // สร้าง chart ใหม่
             activityChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -959,7 +952,6 @@
             });
         }
 
-        // Initialize Application
         document.addEventListener('DOMContentLoaded', () => {
             initializeLIFF();
         });
