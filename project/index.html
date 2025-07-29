@@ -118,6 +118,13 @@
             <h1 class="text-2xl md:text-3xl font-bold text-center">ระบบแจ้งส่งหนังสือเข้า</h1>
             <p class="text-center opacity-90 mt-1">กลุ่มสาระการเรียนรู้ภาษาไทย</p>
             <p id="doctor-display-name" class="text-center opacity-90 mt-1">กำลังโหลดชื่อผู้ใช้...</p>
+            
+            <!-- Connection Test Button -->
+            <div class="text-center mt-3">
+                <button id="test-connection-btn" class="text-xs bg-white bg-opacity-20 hover:bg-opacity-30 px-3 py-1 rounded-full transition-all">
+                    ทดสอบการเชื่อมต่อ
+                </button>
+            </div>
         </div>
     </header>
 
@@ -396,6 +403,43 @@
         let liffInitialized = false;
         let userProfile = null;
 
+        // Test connection to Google Apps Script
+        async function testGASConnection() {
+            try {
+                console.log('Testing GAS connection...');
+                const response = await fetch(`${GAS_URL}?action=getRecent&test=true`, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('GAS connection test successful:', data);
+                return true;
+            } catch (error) {
+                console.error('GAS connection test failed:', error);
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้',
+                    html: `
+                        <p>กรุณาตรวจสอบ:</p>
+                        <ul style="text-align: left; margin: 10px 0;">
+                            <li>การเชื่อมต่ออินเทอร์เน็ต</li>
+                            <li>URL ของ Google Apps Script</li>
+                            <li>การ Deploy Web App</li>
+                        </ul>
+                        <small>Error: ${error.message}</small>
+                    `,
+                    confirmButtonText: 'ตกลง'
+                });
+                return false;
+            }
+        }
+
         // Retry function for fetch with enhanced error handling
         async function fetchWithRetry(url, options, retries = 3, delay = 2000) {
             for (let i = 0; i < retries; i++) {
@@ -496,6 +540,31 @@
                 
                 initializeApp();
                 
+                // Add event listener for connection test button
+                document.getElementById('test-connection-btn').addEventListener('click', async function() {
+                    this.innerHTML = 'กำลังทดสอบ...';
+                    this.disabled = true;
+                    
+                    const isConnected = await testGASConnection();
+                    
+                    if (isConnected) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'การเชื่อมต่อปกติ',
+                            text: 'สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                        
+                        // Refresh data
+                        fetchRecentData();
+                        fetchAllData();
+                    }
+                    
+                    this.innerHTML = 'ทดสอบการเชื่อมต่อ';
+                    this.disabled = false;
+                });
+                
             } catch (error) {
                 console.error('App initialization error:', error);
                 document.getElementById('preloader').style.display = 'none';
@@ -504,13 +573,35 @@
         });
 
         function initializeApp() {
-            initTabs();
-            fetchRecentData();
-            fetchAllData();
-            initCharts();
-            initFormSubmission();
-            initModals();
-            initSearchAndFilter();
+            // Test GAS connection first
+            testGASConnection().then(connectionOk => {
+                if (connectionOk) {
+                    initTabs();
+                    fetchRecentData();
+                    fetchAllData();
+                    initCharts();
+                    initFormSubmission();
+                    initModals();
+                    initSearchAndFilter();
+                } else {
+                    // Still initialize UI but with limited functionality
+                    initTabs();
+                    initModals();
+                    initSearchAndFilter();
+                    
+                    // Show placeholder data
+                    document.getElementById('recent-data').innerHTML = `
+                        <tr><td colspan="6" class="px-6 py-4 text-center text-sm text-red-500">
+                            ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่อ
+                        </td></tr>
+                    `;
+                    document.getElementById('all-data').innerHTML = `
+                        <tr><td colspan="7" class="px-6 py-4 text-center text-sm text-red-500">
+                            ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่อ
+                        </td></tr>
+                    `;
+                }
+            });
         }
 
         function initTabs() {
@@ -853,14 +944,51 @@
         }
 
         async function acknowledgeDocument(data) {
+            // Show loading state
+            const acknowledgeBtn = document.querySelector(`[data-id="${data.id}"]`);
+            if (acknowledgeBtn) {
+                acknowledgeBtn.innerHTML = 'กำลังรับทราบ...';
+                acknowledgeBtn.disabled = true;
+            }
+            
             try {
-                const response = await fetchWithRetry(GAS_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'saveSignature', id: data.id }),
-                    headers: { 'Content-Type': 'application/json' }
-                });
+                console.log('Acknowledging document with data:', data);
                 
-                if (response.status === 'success') {
+                // Try multiple methods to ensure compatibility
+                let response;
+                
+                // Method 1: FormData (preferred)
+                try {
+                    const formData = new FormData();
+                    formData.append('action', 'saveSignature');
+                    formData.append('id', data.id.toString());
+                    
+                    console.log('Attempting FormData request...');
+                    response = await fetchWithRetry(GAS_URL, {
+                        method: 'POST',
+                        body: formData
+                    }, 2, 1000); // Reduce retries and delay for faster fallback
+                    
+                } catch (formDataError) {
+                    console.log('FormData method failed, trying URLSearchParams:', formDataError);
+                    
+                    // Method 2: URLSearchParams (fallback)
+                    const params = new URLSearchParams();
+                    params.append('action', 'saveSignature');
+                    params.append('id', data.id.toString());
+                    
+                    response = await fetchWithRetry(GAS_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: params
+                    }, 2, 1000);
+                }
+                
+                console.log('Acknowledge response:', response);
+                
+                if (response && response.status === 'success') {
                     Swal.fire({
                         icon: 'success',
                         title: 'รับทราบสำเร็จ!',
@@ -899,16 +1027,37 @@
                     fetchAllData();
                     
                 } else {
-                    throw new Error(response.message || 'Failed to acknowledge document');
+                    throw new Error(response?.message || 'เกิดข้อผิดพลาดในการรับทราบเอกสาร');
                 }
+                
             } catch (error) {
                 console.error('Acknowledge document error:', error);
+                
+                // Show detailed error information
+                let errorMessage = 'ไม่สามารถอัปเดตสถานะได้';
+                
+                if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                    errorMessage = 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบ:\n' +
+                                 '• การเชื่อมต่ออินเทอร์เน็ต\n' +
+                                 '• URL ของ Google Apps Script\n' +
+                                 '• การ Deploy Web App ใน Google Apps Script';
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+                
                 Swal.fire({
                     icon: 'error',
                     title: 'เกิดข้อผิดพลาด',
-                    text: `ไม่สามารถอัปเดตสถานะได้: ${error.message}`,
-                    confirmButtonText: 'ตกลง'
+                    text: errorMessage,
+                    confirmButtonText: 'ตกลง',
+                    footer: `<small>รายละเอียด: ${error.name || 'Unknown Error'}</small>`
                 });
+            } finally {
+                // Restore button state
+                if (acknowledgeBtn) {
+                    acknowledgeBtn.innerHTML = 'รับทราบ';
+                    acknowledgeBtn.disabled = false;
+                }
             }
         }
 
