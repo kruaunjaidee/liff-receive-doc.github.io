@@ -256,7 +256,6 @@
                             </tr>
                         </thead>
                         <tbody id="recent-data" class="bg-white divide-y divide-gray-200">
-                            <!-- Data will be loaded here -->
                             <tr>
                                 <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">
                                     กำลังโหลดข้อมูล...
@@ -337,7 +336,6 @@
                             </tr>
                         </thead>
                         <tbody id="all-data" class="bg-white divide-y divide-gray-200">
-                            <!-- Data will be loaded here -->
                             <tr>
                                 <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">
                                     กำลังโหลดข้อมูล...
@@ -456,30 +454,30 @@
             }
         }
 
-        // Preloader
-        document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(() => {
-                document.getElementById('preloader').style.display = 'none';
-            }, 1500);
-            initializeApp();
-        });
-
-        async function initializeApp() {
+        // Preloader and LIFF initialization
+        document.addEventListener('DOMContentLoaded', async function() {
             try {
                 await liff.init({ liffId: LIFF_ID });
                 if (!liff.isLoggedIn()) {
                     liff.login();
+                    return;
                 }
+                setTimeout(() => {
+                    document.getElementById('preloader').style.display = 'none';
+                }, 1500);
+                initializeApp();
             } catch (error) {
                 console.error('LIFF initialization failed', error);
                 Swal.fire({
                     icon: 'error',
                     title: 'เกิดข้อผิดพลาด',
-                    text: 'ไม่สามารถเริ่มต้น LIFF ได้ กรุณาลองใหม่อีกครั้ง',
+                    text: `ไม่สามารถเริ่มต้น LIFF ได้: ${error.message}`,
                     confirmButtonText: 'ตกลง'
                 });
             }
+        });
 
+        function initializeApp() {
             initTabs();
             fetchRecentData();
             fetchAllData();
@@ -680,7 +678,14 @@
                                     cancelButtonText: 'ไม่ต้องการ'
                                 }).then((result) => {
                                     if (result.isConfirmed) {
-                                        shareToLine(response.id);
+                                        shareToLine({
+                                            id: response.id,
+                                            docNumber: document.getElementById('doc-number').value,
+                                            subject: document.getElementById('doc-subject').value,
+                                            activity: document.getElementById('activity').value,
+                                            responsible: document.getElementById('responsible').value,
+                                            fileLink: document.getElementById('file-link').value
+                                        });
                                     }
                                 });
                             }
@@ -703,23 +708,31 @@
             });
         }
 
-        async function shareToLine(id) {
+        async function shareToLine(data) {
             try {
-                const detailResponse = await fetchWithRetry(`${GAS_URL}?action=getDetail&id=${id}`, { method: 'GET' });
-                const flexMessage = createFlexMessage(detailResponse);
-                await liff.shareTargetPicker([
+                const flexMessage = createFlexMessage(data);
+                const result = await liff.shareTargetPicker([
                     {
                         type: "flex",
                         altText: "ข้อมูลหนังสือเข้าใหม่",
                         contents: flexMessage
                     }
                 ]);
-                Swal.fire({
-                    icon: 'success',
-                    title: 'ส่งข้อมูลสำเร็จ',
-                    text: 'ข้อมูลถูกส่งไปยัง LINE เรียบร้อยแล้ว',
-                    confirmButtonText: 'ตกลง'
-                });
+                if (result) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'ส่งข้อมูลสำเร็จ',
+                        text: 'ข้อมูลถูกส่งไปยัง LINE เรียบร้อยแล้ว',
+                        confirmButtonText: 'ตกลง'
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'ยกเลิกการส่ง',
+                        text: 'การส่งข้อมูลไปยัง LINE ถูกยกเลิก',
+                        confirmButtonText: 'ตกลง'
+                    });
+                }
             } catch (error) {
                 console.error('Share to LINE error:', error);
                 Swal.fire({
@@ -732,6 +745,95 @@
         }
 
         function createFlexMessage(data) {
+            const contents = [
+                {
+                    type: "text",
+                    text: data.docNumber,
+                    weight: "bold",
+                    size: "lg"
+                },
+                {
+                    type: "text",
+                    text: data.subject,
+                    wrap: true
+                },
+                {
+                    type: "separator",
+                    margin: "md"
+                },
+                {
+                    type: "box",
+                    layout: "horizontal",
+                    contents: [
+                        {
+                            type: "text",
+                            text: "กิจกรรม:",
+                            size: "sm",
+                            color: "#555555"
+                        },
+                        {
+                            type: "text",
+                            text: data.activity,
+                            size: "sm",
+                            align: "end"
+                        }
+                    ],
+                    margin: "md"
+                },
+                {
+                    type: "box",
+                    layout: "horizontal",
+                    contents: [
+                        {
+                            type: "text",
+                            text: "ผู้รับผิดชอบ:",
+                            size: "sm",
+                            color: "#555555"
+                        },
+                        {
+                            type: "text",
+                            text: data.responsible,
+                            size: "sm",
+                            align: "end",
+                            wrap: true
+                        }
+                    ],
+                    margin: "sm"
+                }
+            ];
+
+            if (data.fileLink) {
+                contents.push({
+                    type: "separator",
+                    margin: "md"
+                });
+                contents.push({
+                    type: "box",
+                    layout: "horizontal",
+                    contents: [
+                        {
+                            type: "text",
+                            text: "ลิงก์ไฟล์:",
+                            size: "sm",
+                            color: "#555555"
+                        },
+                        {
+                            type: "text",
+                            text: data.fileLink,
+                            size: "sm",
+                            align: "end",
+                            wrap: true,
+                            action: {
+                                type: "uri",
+                                label: "ลิงก์ไฟล์",
+                                uri: data.fileLink
+                            }
+                        }
+                    ],
+                    margin: "md"
+                });
+            }
+
             return {
                 type: "bubble",
                 header: {
@@ -751,62 +853,7 @@
                 body: {
                     type: "box",
                     layout: "vertical",
-                    contents: [
-                        {
-                            type: "text",
-                            text: data.docNumber,
-                            weight: "bold",
-                            size: "lg"
-                        },
-                        {
-                            type: "text",
-                            text: data.subject,
-                            wrap: true
-                        },
-                        {
-                            type: "separator",
-                            margin: "md"
-                        },
-                        {
-                            type: "box",
-                            layout: "horizontal",
-                            contents: [
-                                {
-                                    type: "text",
-                                    text: "กิจกรรม:",
-                                    size: "sm",
-                                    color: "#555555"
-                                },
-                                {
-                                    type: "text",
-                                    text: data.activity,
-                                    size: "sm",
-                                    align: "end"
-                                }
-                            ],
-                            margin: "md"
-                        },
-                        {
-                            type: "box",
-                            layout: "horizontal",
-                            contents: [
-                                {
-                                    type: "text",
-                                    text: "ผู้รับผิดชอบ:",
-                                    size: "sm",
-                                    color: "#555555"
-                                },
-                                {
-                                    type: "text",
-                                    text: data.responsible,
-                                    size: "sm",
-                                    align: "end",
-                                    wrap: true
-                                }
-                            ],
-                            margin: "sm"
-                        }
-                    ]
+                    contents: contents
                 },
                 footer: {
                     type: "box",
@@ -817,75 +864,13 @@
                             action: {
                                 type: "uri",
                                 label: "ดูรายละเอียด",
-                                uri: window.location.href // หรือ URL ที่ต้องการ
+                                uri: window.location.href
                             },
                             style: "primary"
                         }
                     ]
                 }
             };
-        }
-
-        function initFormSubmission() {
-            const form = document.getElementById('document-form');
-            form.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                const formData = new FormData();
-                formData.append('action', 'saveDocument');
-                formData.append('date', new Date().toISOString().split('T')[0]);
-                formData.append('docNumber', document.getElementById('doc-number').value);
-                formData.append('subject', document.getElementById('doc-subject').value);
-                formData.append('activity', document.getElementById('activity').value);
-                formData.append('responsible', document.getElementById('responsible').value);
-                formData.append('fileLink', document.getElementById('file-link').value);
-                try {
-                    const response = await fetchWithRetry(GAS_URL, {
-                        method: 'POST',
-                        body: formData
-                    });
-                    if (response.status === 'success') {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'บันทึกข้อมูลสำเร็จ',
-                            text: 'ข้อมูลหนังสือถูกบันทึกเรียบร้อยแล้ว',
-                            confirmButtonText: 'ตกลง'
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-                                Swal.fire({
-                                    title: 'ต้องการแชร์ข้อมูลไปยัง LINE หรือไม่?',
-                                    text: 'คุณสามารถส่งข้อมูลนี้ไปยังกลุ่ม LINE ได้',
-                                    icon: 'question',
-                                    showCancelButton: true,
-                                    confirmButtonText: 'ส่งไปยัง LINE',
-                                    cancelButtonText: 'ไม่ต้องการ'
-                                }).then((result) => {
-                                    if (result.isConfirmed) {
-                                        shareToLine(response.id);
-                                    }
-                                });
-                            }
-                        });
-                        fetchRecentData();
-                        fetchAllData();
-                        form.reset();
-                    } else {
-                        throw new Error(response.message || 'Failed to save document');
-                    }
-                } catch (error) {
-                    console.error('Save document error:', error);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'เกิดข้อผิดพลาด',
-                        text: `ไม่สามารถบันทึกข้อมูลได้: ${error.message}`,
-                        confirmButtonText: 'ตกลง'
-                    });
-                }
-            });
-        }
-
-        function initFileUpload() {
-            // Removed as file upload is removed
         }
 
         let signaturePad;
@@ -965,7 +950,7 @@
                     </div>
                     <div><p class="text-sm font-medium text-gray-500">สถานะ</p><p class="text-lg">${data.status}</p></div>
                     ${data.signature ? `<div><p class="text-sm font-medium text-gray-500">ลายเซ็นรับทราบ</p><img src="${data.signature}" alt="ลายเซ็น" class="mt-2 border border-gray-300 rounded-lg" style="max-height: 100px;"></div>` : ''}
-                    ${data.fileLink ? `<div><p class="text-sm font-medium text-gray-500">ลิงก์ไฟล์</p><a href="${data.fileLink}" target="_blank" class="text-blue-600 hover:text-blue-800">ดูลิงก์ไฟล์</a></div>` : ''}
+                    ${data.fileLink ? `<div><p class="text-sm font-medium text-gray-500">ลิงก์ไฟล์</p><a href="${data.fileLink}" target="_blank" class="text-blue-600 hover:text-blue-800 flex items-center mt-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd" /></svg>ดูไฟล์</a></div>` : ''}
                 `;
                 document.getElementById('detail-modal').style.display = 'flex';
             } catch (error) {
@@ -977,6 +962,12 @@
                     confirmButtonText: 'ตกลง'
                 });
             }
+        }
+
+        function showSignatureModal(id) {
+            document.getElementById('document-id').value = id;
+            signaturePad.clear();
+            document.getElementById('signature-modal').style.display = 'flex';
         }
 
         async function showSignatureView(id) {
