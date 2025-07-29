@@ -430,12 +430,13 @@
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbzHrM4TXg-Ot2P1da3Jq6J5b6W7Ukn2jLr_0Mql8XvfY-XXm9G1_H2HUFIlTrqkSzgc/exec';
         const LIFF_ID = '2005780370-27LZkWna'; // แทนที่ด้วย LIFF ID จริงจาก LINE Developers Console
 
-        // Retry function for fetch
-        async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
+        // Retry function for fetch with enhanced error handling
+        async function fetchWithRetry(url, options, retries = 3, delay = 2000) {
             for (let i = 0; i < retries; i++) {
                 try {
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 10000);
+                    const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased timeout to 15s
+                    console.log(`Fetching ${url}, attempt ${i + 1}/${retries}`);
                     const response = await fetch(url, { ...options, signal: controller.signal });
                     clearTimeout(timeoutId);
                     if (!response.ok) {
@@ -448,6 +449,7 @@
                     }
                     return data;
                 } catch (error) {
+                    console.error(`Fetch attempt ${i + 1} failed:`, error);
                     if (i === retries - 1) throw error;
                     await new Promise(resolve => setTimeout(resolve, delay));
                 }
@@ -457,8 +459,10 @@
         // Preloader and LIFF initialization
         document.addEventListener('DOMContentLoaded', async function() {
             try {
+                console.log('Initializing LIFF with ID:', LIFF_ID);
                 await liff.init({ liffId: LIFF_ID });
                 if (!liff.isLoggedIn()) {
+                    console.log('User not logged in, redirecting to LINE login');
                     liff.login();
                     return;
                 }
@@ -467,7 +471,7 @@
                 }, 1500);
                 initializeApp();
             } catch (error) {
-                console.error('LIFF initialization failed', error);
+                console.error('LIFF initialization failed:', error);
                 Swal.fire({
                     icon: 'error',
                     title: 'เกิดข้อผิดพลาด',
@@ -710,12 +714,11 @@
 
         async function shareToLine(data) {
             try {
-                const flexMessage = createFlexMessage(data);
+                const textMessage = `📚 หนังสือเข้าใหม่\nเลขที่: ${data.docNumber}\nเรื่อง: ${data.subject}\nกิจกรรม: ${data.activity}\nผู้รับผิดชอบ: ${data.responsible}${data.fileLink ? `\nลิงก์ไฟล์: ${data.fileLink}` : ''}\nดูรายละเอียด: ${window.location.href}`;
                 const result = await liff.shareTargetPicker([
                     {
-                        type: "flex",
-                        altText: "ข้อมูลหนังสือเข้าใหม่",
-                        contents: flexMessage
+                        type: "text",
+                        text: textMessage
                     }
                 ]);
                 if (result) {
@@ -744,135 +747,6 @@
             }
         }
 
-        function createFlexMessage(data) {
-            const contents = [
-                {
-                    type: "text",
-                    text: data.docNumber,
-                    weight: "bold",
-                    size: "lg"
-                },
-                {
-                    type: "text",
-                    text: data.subject,
-                    wrap: true
-                },
-                {
-                    type: "separator",
-                    margin: "md"
-                },
-                {
-                    type: "box",
-                    layout: "horizontal",
-                    contents: [
-                        {
-                            type: "text",
-                            text: "กิจกรรม:",
-                            size: "sm",
-                            color: "#555555"
-                        },
-                        {
-                            type: "text",
-                            text: data.activity,
-                            size: "sm",
-                            align: "end"
-                        }
-                    ],
-                    margin: "md"
-                },
-                {
-                    type: "box",
-                    layout: "horizontal",
-                    contents: [
-                        {
-                            type: "text",
-                            text: "ผู้รับผิดชอบ:",
-                            size: "sm",
-                            color: "#555555"
-                        },
-                        {
-                            type: "text",
-                            text: data.responsible,
-                            size: "sm",
-                            align: "end",
-                            wrap: true
-                        }
-                    ],
-                    margin: "sm"
-                }
-            ];
-
-            if (data.fileLink) {
-                contents.push({
-                    type: "separator",
-                    margin: "md"
-                });
-                contents.push({
-                    type: "box",
-                    layout: "horizontal",
-                    contents: [
-                        {
-                            type: "text",
-                            text: "ลิงก์ไฟล์:",
-                            size: "sm",
-                            color: "#555555"
-                        },
-                        {
-                            type: "text",
-                            text: data.fileLink,
-                            size: "sm",
-                            align: "end",
-                            wrap: true,
-                            action: {
-                                type: "uri",
-                                label: "ลิงก์ไฟล์",
-                                uri: data.fileLink
-                            }
-                        }
-                    ],
-                    margin: "md"
-                });
-            }
-
-            return {
-                type: "bubble",
-                header: {
-                    type: "box",
-                    layout: "vertical",
-                    contents: [
-                        {
-                            type: "text",
-                            text: "หนังสือเข้าใหม่",
-                            weight: "bold",
-                            size: "xl",
-                            color: "#ffffff"
-                        }
-                    ],
-                    backgroundColor: "#FF5757"
-                },
-                body: {
-                    type: "box",
-                    layout: "vertical",
-                    contents: contents
-                },
-                footer: {
-                    type: "box",
-                    layout: "vertical",
-                    contents: [
-                        {
-                            type: "button",
-                            action: {
-                                type: "uri",
-                                label: "ดูรายละเอียด",
-                                uri: window.location.href
-                            },
-                            style: "primary"
-                        }
-                    ]
-                }
-            };
-        }
-
         let signaturePad;
         function initSignaturePad() {
             const canvas = document.getElementById('signature-pad');
@@ -890,7 +764,17 @@
                 }
                 const signatureData = signaturePad.toDataURL();
                 const documentId = document.getElementById('document-id').value;
+                if (!documentId) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'เกิดข้อผิดพลาด',
+                        text: 'ไม่พบ ID เอกสาร กรุณาลองใหม่',
+                        confirmButtonText: 'ตกลง'
+                    });
+                    return;
+                }
                 try {
+                    console.log('Saving signature for document ID:', documentId);
                     const response = await fetchWithRetry(GAS_URL, {
                         method: 'POST',
                         body: JSON.stringify({ action: 'saveSignature', id: documentId, signature: signatureData }),
@@ -965,6 +849,7 @@
         }
 
         function showSignatureModal(id) {
+            console.log('Opening signature modal for document ID:', id);
             document.getElementById('document-id').value = id;
             signaturePad.clear();
             document.getElementById('signature-modal').style.display = 'flex';
