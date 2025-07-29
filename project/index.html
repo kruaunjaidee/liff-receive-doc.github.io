@@ -49,6 +49,10 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
     </style>
 </head>
 <body class="bg-gray-100 font-sans antialiased text-gray-800">
@@ -121,7 +125,7 @@
                     </div>
                     <div>
                         <label for="uploadFile" class="block text-sm font-medium text-gray-700">อัพโหลดไฟล์ (ไม่บังคับ)</label>
-                        <input type="file" id="uploadFile" class="mt-1 block w-full text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-blue file:text-white hover:file:bg-dark-purple">
+                        <input type="file" id="uploadFile" class="mt-1 block w-full text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-blue file:text-white hover:file:bg-dark-purple" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif">
                     </div>
                     <button type="submit" class="w-full bg-secondary-green hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-md shadow-md transition duration-300 ease-in-out">
                         บันทึกข้อมูล
@@ -132,7 +136,9 @@
             <section class="lg:col-span-2 space-y-8">
                 <div class="bg-white p-6 rounded-lg shadow-lg">
                     <h2 class="text-2xl font-semibold text-dark-purple mb-4">กราฟแสดงจำนวนกิจกรรม</h2>
-                    <canvas id="activityChart"></canvas>
+                    <div class="chart-container">
+                        <canvas id="activityChart"></canvas>
+                    </div>
                 </div>
 
                 <div class="bg-white p-6 rounded-lg shadow-lg">
@@ -149,7 +155,11 @@
                                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
                                 </tr>
                             </thead>
-                            <tbody id="latestRecordsBody" class="bg-white divide-y divide-gray-200"></tbody>
+                            <tbody id="latestRecordsBody" class="bg-white divide-y divide-gray-200">
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-gray-500">กำลังโหลดข้อมูล...</td>
+                                </tr>
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -168,16 +178,18 @@
     </script>
 
     <script>
-        // Global variables for LIFF
-        let LIFF_ID = '2005780370-27LZkWna'; // Replace with your LIFF ID
-        let botBasicId = '@233svlmc'; // Replace with your LINE Official Account Basic ID
+        // Global variables
+        let LIFF_ID = '2005780370-27LZkWna'; // แทนที่ด้วย LIFF ID ของคุณ
+        let botBasicId = '@233svlmc'; // แทนที่ด้วย LINE Official Account Basic ID ของคุณ
         let userId = '';
         let userName = '';
         let userPicture = '';
+        let isLiffAvailable = false;
 
-        const GOOGLE_SHEET_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzHrM4TXg-Ot2P1da3Jq6J5b6W7Ukn2jLr_0Mql8XvfY-XXm9G1_H2HUFIlTrqkSzgc/exec'; // Replace with your GAS Web App URL
+        // แทนที่ด้วย URL ของ Google Apps Script Web App ของคุณ
+        const GOOGLE_SHEET_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzHrM4TXg-Ot2P1da3Jq6J5b6W7Ukn2jLr_0Mql8XvfY-XXm9G1_H2HUFIlTrqkSzgc/exec';
 
-        // --- Utility Functions ---
+        // Utility Functions
         function showToast(title, icon = 'success') {
             Swal.mixin({
                 toast: true,
@@ -222,70 +234,106 @@
                 setTimeout(() => {
                     confetti.style.transform = `translate(${Math.random() * 400 - 200}px, ${window.innerHeight + 20}px) rotate(${Math.random() * 720}deg)`;
                     confetti.style.opacity = '0';
-                    confetti.remove();
+                    setTimeout(() => confetti.remove(), 1000);
                 }, 10);
             }
         }
 
-        // --- LIFF Initialization ---
+        // LIFF Initialization
         async function initializeLIFF() {
             showPreloader();
             try {
-                await liff.init({ liffId: LIFF_ID, withLoginOnExternalBrowser: true });
+                // ตรวจสอบว่า LIFF SDK โหลดแล้วหรือยัง
+                if (typeof liff === 'undefined') {
+                    throw new Error('LIFF SDK not loaded');
+                }
+
+                await liff.init({ 
+                    liffId: LIFF_ID, 
+                    withLoginOnExternalBrowser: true 
+                });
+
                 if (liff.isLoggedIn()) {
                     const profile = await liff.getProfile();
                     userId = profile.userId;
                     userName = profile.displayName;
                     userPicture = profile.pictureUrl;
-                    document.getElementById('userName').textContent = userName;
-                    document.getElementById('userPicture').src = userPicture;
-                    document.getElementById('userName').classList.remove('hidden');
-                    document.getElementById('userPicture').classList.remove('hidden');
 
-                    liff.getFriendship().then((data) => {
-                        if (!data.friendFlag) {
-                            Swal.fire({
+                    // แสดงข้อมูลผู้ใช้
+                    document.getElementById('userName').textContent = userName;
+                    if (userPicture) {
+                        document.getElementById('userPicture').src = userPicture;
+                        document.getElementById('userPicture').classList.remove('hidden');
+                    }
+                    document.getElementById('userName').classList.remove('hidden');
+
+                    // ตรวจสอบว่าเป็นเพื่อนหรือไม่
+                    try {
+                        const friendshipStatus = await liff.getFriendship();
+                        if (!friendshipStatus.friendFlag) {
+                            const result = await Swal.fire({
                                 title: 'เดี๋ยวก่อน!',
                                 text: 'คุณยังไม่ได้เป็นเพื่อนกับเรา คุณต้องการเพิ่มเพื่อนหรือไม่?',
-                                icon: 'error',
+                                icon: 'warning',
                                 showCancelButton: true,
                                 confirmButtonText: 'ใช่, เพิ่มเพื่อน',
                                 cancelButtonText: 'ไม่'
-                            }).then((result) => {
-                                if (result.isConfirmed) {
-                                    window.location = 'https://line.me/R/ti/p/' + botBasicId;
-                                } else {
-                                    showToast('คุณสามารถใช้งานได้ แต่บางฟังก์ชันอาจไม่สมบูรณ์หากไม่เป็นเพื่อนกับบอท', 'warning');
-                                }
                             });
+
+                            if (result.isConfirmed) {
+                                window.open('https://line.me/R/ti/p/' + botBasicId, '_blank');
+                            } else {
+                                showToast('คุณสามารถใช้งานได้ แต่บางฟังก์ชันอาจไม่สมบูรณ์หากไม่เป็นเพื่อนกับบอท', 'warning');
+                            }
                         }
-                    });
-                    await loadDeliveryHistory();
-                    await loadActivityChart();
+                    } catch (friendshipError) {
+                        console.warn('Cannot check friendship status:', friendshipError);
+                    }
+
+                    isLiffAvailable = true;
                 } else {
                     liff.login({ redirectUri: window.location.href });
                 }
             } catch (error) {
-                console.error('LIFF initialization failed', error);
+                console.error('LIFF initialization failed:', error);
                 showToast('ไม่สามารถเชื่อมต่อกับ LINE ได้ (กำลังใช้โหมดทดสอบ)', 'info');
+                
+                // กำหนดค่าเริ่มต้นสำหรับโหมดทดสอบ
+                userId = 'test_user_' + Math.random().toString(36).substr(2, 9);
+                userName = 'ผู้ใช้ทดสอบ';
+                userPicture = '';
+                isLiffAvailable = false;
+                
+                document.getElementById('userName').textContent = userName;
+                document.getElementById('userName').classList.remove('hidden');
             } finally {
                 hidePreloader();
+                // โหลดข้อมูลเมื่อเริ่มต้น
+                await loadDeliveryHistory();
+                await loadActivityChart();
             }
         }
 
-        // --- Google Sheets Integration Functions ---
+        // Google Sheets Integration Functions
         async function sendDataToGoogleSheet(data) {
             showPreloader();
             try {
                 const formData = new FormData();
                 for (const key in data) {
-                    formData.append(key, data[key]);
+                    if (data[key] !== null && data[key] !== undefined) {
+                        formData.append(key, data[key]);
+                    }
                 }
 
                 const response = await fetch(GOOGLE_SHEET_WEB_APP_URL, {
                     method: 'POST',
                     body: formData
                 });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const result = await response.json();
                 if (result.status === 'success') {
                     showToast('บันทึกข้อมูลเรียบร้อย!', 'success');
@@ -294,12 +342,11 @@
                     await loadActivityChart();
                     return true;
                 } else {
-                    Swal.fire('ข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้: ' + result.message, 'error');
-                    return false;
+                    throw new Error(result.message || 'Unknown error');
                 }
             } catch (error) {
                 console.error('Error sending data to Google Sheet:', error);
-                Swal.fire('ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์', 'error');
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้: ' + error.message, 'error');
                 return false;
             } finally {
                 hidePreloader();
@@ -307,12 +354,16 @@
         }
 
         async function fetchDataFromGoogleSheet() {
-            showPreloader();
             try {
                 const response = await fetch(GOOGLE_SHEET_WEB_APP_URL + '?action=getData');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const result = await response.json();
                 if (result.status === 'success') {
-                    return result.data;
+                    return result.data || [];
                 } else {
                     console.error('Error fetching data:', result.message);
                     return [];
@@ -320,8 +371,6 @@
             } catch (error) {
                 console.error('Error fetching data from Google Sheet:', error);
                 return [];
-            } finally {
-                hidePreloader();
             }
         }
 
@@ -337,6 +386,11 @@
                     method: 'POST',
                     body: formData
                 });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const result = await response.json();
                 if (result.status === 'success') {
                     showToast('บันทึกลายเซ็นเรียบร้อย!', 'success');
@@ -344,90 +398,96 @@
                     await loadDeliveryHistory();
                     return true;
                 } else {
-                    Swal.fire('ข้อผิดพลาด', 'ไม่สามารถบันทึกลายเซ็นได้: ' + result.message, 'error');
-                    return false;
+                    throw new Error(result.message || 'Unknown error');
                 }
             } catch (error) {
                 console.error('Error updating signature:', error);
-                Swal.fire('ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการบันทึกลายเซ็น', 'error');
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถบันทึกลายเซ็นได้: ' + error.message, 'error');
                 return false;
             } finally {
                 hidePreloader();
             }
         }
 
-        // --- Data Submission and File Upload ---
+        // Form Submission Handler
         document.getElementById('recordForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const bookNumber = document.getElementById('bookNumber').value;
-            const subject = document.getElementById('subject').value;
+            const bookNumber = document.getElementById('bookNumber').value.trim();
+            const subject = document.getElementById('subject').value.trim();
             const activity = document.getElementById('activity').value;
             const responsibleTeacher = document.getElementById('responsibleTeacher').value;
             const uploadFile = document.getElementById('uploadFile').files[0];
-            let fileUrl = '';
 
+            // ตรวจสอบข้อมูลพื้นฐาน
+            if (!bookNumber || !subject || !activity || !responsibleTeacher) {
+                showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'warning');
+                return;
+            }
+
+            const dataToSave = {
+                action: 'appendData',
+                timestamp: new Date().toLocaleString('th-TH', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                }),
+                bookNumber: bookNumber,
+                subject: subject,
+                activity: activity,
+                responsibleTeacher: responsibleTeacher,
+                uploaderId: userId,
+                uploaderName: userName,
+                fileName: '',
+                mimeType: '',
+                fileBase64: ''
+            };
+
+            // จัดการไฟล์อัพโหลด
             if (uploadFile) {
+                // ตรวจสอบขนาดไฟล์ (จำกัดที่ 10MB)
+                if (uploadFile.size > 10 * 1024 * 1024) {
+                    showToast('ไฟล์มีขนาดใหญ่เกินไป (จำกัดที่ 10MB)', 'error');
+                    return;
+                }
+
                 showToast('กำลังอัพโหลดไฟล์...', 'info');
                 try {
                     const reader = new FileReader();
-                    const fileBase64 = await new Promise((resolve) => {
+                    const fileBase64 = await new Promise((resolve, reject) => {
                         reader.onload = () => resolve(reader.result.split(',')[1]);
+                        reader.onerror = reject;
                         reader.readAsDataURL(uploadFile);
                     });
 
-                    const dataToSave = {
-                        action: 'appendData',
-                        timestamp: new Date().toLocaleString('th-TH'),
-                        bookNumber: bookNumber,
-                        subject: subject,
-                        activity: activity,
-                        responsibleTeacher: responsibleTeacher,
-                        uploaderId: userId,
-                        uploaderName: userName,
-                        fileName: uploadFile.name,
-                        mimeType: uploadFile.type,
-                        fileBase64: fileBase64
-                    };
-
-                    const success = await sendDataToGoogleSheet(dataToSave);
-                    if (success) {
-                        fileUrl = (await fetchDataFromGoogleSheet()).slice(-1)[0].fileUrl;
-                        showToast('ไฟล์อัพโหลดสำเร็จ!', 'success');
-                        document.getElementById('recordForm').reset();
-                        await sendFlexMessage({ ...dataToSave, fileUrl });
-                    }
+                    dataToSave.fileName = uploadFile.name;
+                    dataToSave.mimeType = uploadFile.type;
+                    dataToSave.fileBase64 = fileBase64;
                 } catch (error) {
-                    console.error('Error uploading file:', error);
-                    showToast('ไม่สามารถอัพโหลดไฟล์ได้', 'error');
+                    console.error('Error reading file:', error);
+                    showToast('ไม่สามารถอ่านไฟล์ได้', 'error');
+                    return;
                 }
-            } else {
-                const dataToSave = {
-                    action: 'appendData',
-                    timestamp: new Date().toLocaleString('th-TH'),
-                    bookNumber: bookNumber,
-                    subject: subject,
-                    activity: activity,
-                    responsibleTeacher: responsibleTeacher,
-                    uploaderId: userId,
-                    uploaderName: userName,
-                    fileName: '',
-                    mimeType: '',
-                    fileBase64: ''
-                };
+            }
 
-                const success = await sendDataToGoogleSheet(dataToSave);
-                if (success) {
-                    document.getElementById('recordForm').reset();
+            const success = await sendDataToGoogleSheet(dataToSave);
+            if (success) {
+                document.getElementById('recordForm').reset();
+                
+                // ส่ง Flex Message หากมี LIFF
+                if (isLiffAvailable) {
                     await sendFlexMessage(dataToSave);
                 }
             }
         });
 
-        // --- Flex Message for LINE Share ---
+        // Flex Message for LINE Share
         async function sendFlexMessage(data) {
-            if (!liff.isApiAvailable('shareTargetPicker')) {
-                showToast('ShareTargetPicker ไม่พร้อมใช้งาน', 'error');
+            if (!isLiffAvailable || !liff.isApiAvailable('shareTargetPicker')) {
+                console.log('ShareTargetPicker ไม่พร้อมใช้งาน');
                 return;
             }
 
@@ -597,15 +657,16 @@
                 }
             };
 
-            if (data.fileUrl) {
+            // เพิ่มปุ่มดาวน์โหลดไฟล์หากมี
+            if (data.fileName) {
                 flexMessage.footer.contents.unshift({
                     "type": "button",
                     "style": "link",
                     "height": "sm",
                     "action": {
                         "type": "uri",
-                        "label": "ดาวน์โหลดไฟล์",
-                        "uri": data.fileUrl
+                        "label": "มีไฟล์แนบ",
+                        "uri": window.location.href
                     }
                 });
             }
@@ -625,44 +686,61 @@
             }
         }
 
-        // --- Data Display (Table) ---
+        // Data Display Functions
         async function loadDeliveryHistory() {
-            showPreloader();
-            const records = await fetchDataFromGoogleSheet();
             const tableBody = document.getElementById('latestRecordsBody');
+            tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500">กำลังโหลดข้อมูล...</td></tr>';
+
+            const records = await fetchDataFromGoogleSheet();
             tableBody.innerHTML = '';
 
-            const latest5Records = records.slice(-5).reverse();
-
-            if (latest5Records.length === 0) {
+            if (records.length === 0) {
                 tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500">ยังไม่มีข้อมูลบันทึก</td></tr>';
-                hidePreloader();
                 return;
             }
+
+            const latest5Records = records.slice(-5).reverse();
 
             latest5Records.forEach((record, index) => {
                 const row = tableBody.insertRow();
                 const actualIndex = records.indexOf(record);
 
+                // ลำดับ
                 row.insertCell().textContent = records.length - actualIndex;
-                row.insertCell().textContent = record.bookNumber;
-                row.insertCell().textContent = record.activity;
-                row.insertCell().textContent = record.responsibleTeacher;
+                
+                // เลขที่หนังสือ
+                row.insertCell().textContent = record.bookNumber || '';
+                
+                // กิจกรรม
+                const activityCell = row.insertCell();
+                activityCell.textContent = record.activity || '';
+                activityCell.className = 'max-w-xs truncate';
+                
+                // ผู้รับผิดชอบ
+                const teacherCell = row.insertCell();
+                teacherCell.textContent = record.responsibleTeacher || '';
+                teacherCell.className = 'max-w-xs truncate';
 
+                // ลายเซ็น
                 const signatureCell = row.insertCell();
                 if (record.signature && record.signature !== '') {
                     const img = document.createElement('img');
                     img.src = record.signature;
-                    img.classList.add('w-24', 'h-12', 'object-contain', 'border', 'border-gray-300', 'rounded');
+                    img.classList.add('w-24', 'h-12', 'object-contain', 'border', 'border-gray-300', 'rounded', 'cursor-pointer');
+                    img.onclick = () => showImageModal(record.signature);
                     signatureCell.appendChild(img);
                 } else {
                     signatureCell.textContent = 'ยังไม่มีลายเซ็น';
+                    signatureCell.className = 'text-gray-400 text-sm';
                 }
 
+                // ปุ่มดำเนินการ
                 const actionCell = row.insertCell();
+                actionCell.className = 'space-x-2';
+
                 const viewDetailsBtn = document.createElement('button');
                 viewDetailsBtn.textContent = 'ดู';
-                viewDetailsBtn.classList.add('bg-primary-blue', 'hover:bg-indigo-700', 'text-white', 'py-1', 'px-3', 'rounded-md', 'text-sm', 'mr-2');
+                viewDetailsBtn.classList.add('bg-primary-blue', 'hover:bg-indigo-700', 'text-white', 'py-1', 'px-3', 'rounded-md', 'text-sm');
                 viewDetailsBtn.onclick = () => showRecordDetails(record);
 
                 const acknowledgeBtn = document.createElement('button');
@@ -670,48 +748,85 @@
                 acknowledgeBtn.classList.add('bg-accent-yellow', 'hover:bg-yellow-600', 'text-white', 'py-1', 'px-3', 'rounded-md', 'text-sm');
                 acknowledgeBtn.onclick = () => showSignaturePad(actualIndex);
 
+                // ถ้ามีลายเซ็นแล้ว ปิดการใช้งานปุ่มรับทราบ
+                if (record.signature && record.signature !== '') {
+                    acknowledgeBtn.disabled = true;
+                    acknowledgeBtn.classList.remove('bg-accent-yellow', 'hover:bg-yellow-600');
+                    acknowledgeBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                    acknowledgeBtn.textContent = 'รับทราบแล้ว';
+                }
+
                 actionCell.appendChild(viewDetailsBtn);
                 actionCell.appendChild(acknowledgeBtn);
             });
-            hidePreloader();
+        }
+
+        function showImageModal(imageSrc) {
+            Swal.fire({
+                imageUrl: imageSrc,
+                imageWidth: 400,
+                imageHeight: 200,
+                imageAlt: 'ลายเซ็น',
+                showConfirmButton: false,
+                showCloseButton: true
+            });
         }
 
         async function showRecordDetails(record) {
-            let fileLink = record.fileUrl ? `<p><strong>ไฟล์แนบ:</strong> <a href="${record.fileUrl}" target="_blank" class="text-blue-600 hover:underline">ดาวน์โหลดไฟล์</a></p>` : '<p><strong>ไฟล์แนบ:</strong> ไม่มี</p>';
-            let signatureImage = record.signature ? `<p><strong>ลายเซ็น:</strong><br><img src="${record.signature}" class="w-full h-auto max-w-xs mt-2 border border-gray-300 rounded"></p>` : '<p><strong>ลายเซ็น:</strong> ยังไม่มี</p>';
+            let fileInfo = '';
+            if (record.fileName && record.fileName !== '') {
+                if (record.fileUrl && record.fileUrl !== '') {
+                    fileInfo = `<p><strong>ไฟล์แนบ:</strong> <a href="${record.fileUrl}" target="_blank" class="text-blue-600 hover:underline">${record.fileName}</a></p>`;
+                } else {
+                    fileInfo = `<p><strong>ไฟล์แนบ:</strong> ${record.fileName}</p>`;
+                }
+            } else {
+                fileInfo = '<p><strong>ไฟล์แนบ:</strong> ไม่มี</p>';
+            }
+
+            let signatureImage = '';
+            if (record.signature && record.signature !== '') {
+                signatureImage = `<p><strong>ลายเซ็น:</strong><br><img src="${record.signature}" class="w-full h-auto max-w-xs mt-2 border border-gray-300 rounded cursor-pointer" onclick="window.open('${record.signature}', '_blank')"></p>`;
+            } else {
+                signatureImage = '<p><strong>ลายเซ็น:</strong> ยังไม่มี</p>';
+            }
 
             Swal.fire({
                 title: 'รายละเอียดหนังสือ',
                 html: `
-                    <p><strong>เลขที่หนังสือ:</strong> ${record.bookNumber}</p>
-                    <p><strong>เรื่องที่แจ้ง:</strong> ${record.subject}</p>
-                    <p><strong>กิจกรรม:</strong> ${record.activity}</p>
-                    <p><strong>มอบครูผู้รับผิดชอบ:</strong> ${record.responsibleTeacher}</p>
-                    <p><strong>ผู้แจ้ง (LINE):</strong> ${record.uploaderName}</p>
-                    <p><strong>วันที่/เวลา:</strong> ${record.timestamp}</p>
-                    ${fileLink}
-                    ${signatureImage}
+                    <div class="text-left space-y-2">
+                        <p><strong>เลขที่หนังสือ:</strong> ${record.bookNumber || ''}</p>
+                        <p><strong>เรื่องที่แจ้ง:</strong> ${record.subject || ''}</p>
+                        <p><strong>กิจกรรม:</strong> ${record.activity || ''}</p>
+                        <p><strong>มอบครูผู้รับผิดชอบ:</strong> ${record.responsibleTeacher || ''}</p>
+                        <p><strong>ผู้แจ้ง:</strong> ${record.uploaderName || ''}</p>
+                        <p><strong>วันที่/เวลา:</strong> ${record.timestamp || ''}</p>
+                        ${fileInfo}
+                        ${signatureImage}
+                    </div>
                 `,
                 icon: 'info',
                 confirmButtonText: 'ปิด',
+                width: '600px',
                 customClass: {
-                    container: 'my-swal-container',
-                    popup: 'my-swal-popup'
-                },
-                width: '600px'
+                    htmlContainer: 'text-sm'
+                }
             });
         }
 
         function showSignaturePad(rowIndex) {
             const signaturePadHtml = document.getElementById('signaturePadTemplate').innerHTML;
+            
             Swal.fire({
                 title: 'ลงลายเซ็นรับทราบเอกสาร',
                 html: signaturePadHtml,
                 showConfirmButton: false,
+                width: '600px',
                 didOpen: () => {
                     const canvas = document.getElementById('signatureCanvas');
                     const signaturePad = new SignaturePad(canvas, {
-                        backgroundColor: 'rgb(255, 255, 255)'
+                        backgroundColor: 'rgb(255, 255, 255)',
+                        penColor: 'rgb(0, 0, 0)'
                     });
 
                     function resizeCanvas() {
@@ -721,17 +836,23 @@
                         canvas.getContext('2d').scale(ratio, ratio);
                         signaturePad.clear();
                     }
+                    
                     window.addEventListener('resize', resizeCanvas);
                     resizeCanvas();
 
-                    document.getElementById('clearSignature').onclick = () => signaturePad.clear();
+                    document.getElementById('clearSignature').onclick = () => {
+                        signaturePad.clear();
+                    };
+
                     document.getElementById('saveSignature').onclick = async () => {
                         if (signaturePad.isEmpty()) {
                             showToast('กรุณาลงลายเซ็นก่อน', 'warning');
                             return;
                         }
-                        const signatureDataUrl = signaturePad.toDataURL();
+
+                        const signatureDataUrl = signaturePad.toDataURL('image/png');
                         const success = await updateSignatureInGoogleSheet(rowIndex, signatureDataUrl);
+                        
                         if (success) {
                             Swal.close();
                         }
@@ -740,19 +861,17 @@
             });
         }
 
+        // Chart Functions
         let activityChartInstance = null;
 
         async function loadActivityChart() {
             const records = await fetchDataFromGoogleSheet();
             const activityCounts = {};
 
+            // นับจำนวนแต่ละกิจกรรม
             records.forEach(record => {
-                const activity = record.activity;
-                if (activityCounts[activity]) {
-                    activityCounts[activity]++;
-                } else {
-                    activityCounts[activity] = 1;
-                }
+                const activity = record.activity || 'ไม่ระบุ';
+                activityCounts[activity] = (activityCounts[activity] || 0) + 1;
             });
 
             const labels = Object.keys(activityCounts);
@@ -760,10 +879,12 @@
 
             const ctx = document.getElementById('activityChart').getContext('2d');
 
+            // ทำลาย chart เก่าถ้ามี
             if (activityChartInstance) {
                 activityChartInstance.destroy();
             }
 
+            // สร้าง chart ใหม่
             activityChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -772,32 +893,32 @@
                         label: 'จำนวนหนังสือแยกตามกิจกรรม',
                         data: data,
                         backgroundColor: [
-                            'rgba(79, 70, 229, 0.6)',
-                            'rgba(16, 185, 129, 0.6)',
-                            'rgba(245, 158, 11, 0.6)',
-                            'rgba(109, 40, 217, 0.6)',
-                            'rgba(251, 207, 232, 0.6)',
-                            'rgba(255, 99, 132, 0.6)',
-                            'rgba(54, 162, 235, 0.6)',
-                            'rgba(255, 206, 86, 0.6)',
-                            'rgba(75, 192, 192, 0.6)',
-                            'rgba(153, 102, 255, 0.6)',
-                            'rgba(255, 159, 64, 0.6)'
+                            'rgba(79, 70, 229, 0.8)',
+                            'rgba(16, 185, 129, 0.8)',
+                            'rgba(245, 158, 11, 0.8)',
+                            'rgba(109, 40, 217, 0.8)',
+                            'rgba(239, 68, 68, 0.8)',
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(34, 197, 94, 0.8)',
+                            'rgba(168, 85, 247, 0.8)',
+                            'rgba(236, 72, 153, 0.8)',
+                            'rgba(20, 184, 166, 0.8)',
+                            'rgba(251, 146, 60, 0.8)'
                         ],
                         borderColor: [
                             'rgba(79, 70, 229, 1)',
                             'rgba(16, 185, 129, 1)',
                             'rgba(245, 158, 11, 1)',
                             'rgba(109, 40, 217, 1)',
-                            'rgba(251, 207, 232, 1)',
-                            'rgba(255, 99, 132, 1)',
-                            'rgba(54, 162, 235, 1)',
-                            'rgba(255, 206, 86, 1)',
-                            'rgba(75, 192, 192, 1)',
-                            'rgba(153, 102, 255, 1)',
-                            'rgba(255, 159, 64, 1)'
+                            'rgba(239, 68, 68, 1)',
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(34, 197, 94, 1)',
+                            'rgba(168, 85, 247, 1)',
+                            'rgba(236, 72, 153, 1)',
+                            'rgba(20, 184, 166, 1)',
+                            'rgba(251, 146, 60, 1)'
                         ],
-                        borderWidth: 1
+                        borderWidth: 2
                     }]
                 },
                 options: {
@@ -807,20 +928,38 @@
                         y: {
                             beginAtZero: true,
                             ticks: {
-                                precision: 0
+                                precision: 0,
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                font: {
+                                    size: 10
+                                },
+                                maxRotation: 45
                             }
                         }
                     },
                     plugins: {
                         legend: {
                             display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.parsed.y + ' รายการ';
+                                }
+                            }
                         }
                     }
                 }
             });
         }
 
-        // --- Initialize LIFF ---
+        // Initialize Application
         document.addEventListener('DOMContentLoaded', () => {
             initializeLIFF();
         });
