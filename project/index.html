@@ -214,7 +214,7 @@
                                     <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">คลิกเพื่ออัพโหลด</span> หรือลากไฟล์มาวาง</p>
                                     <p class="text-xs text-gray-500">PDF, DOC, DOCX, XLS, XLSX (ไม่เกิน 10MB)</p>
                                 </div>
-                                <input id="file-upload" type="file" class="hidden" />
+                                <input id="file-upload" type="file" class="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx" />
                             </label>
                         </div>
                         <div id="file-name" class="mt-2 text-sm text-gray-600"></div>
@@ -440,14 +440,33 @@
     </div>
 
     <script>
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzHrM4TXg-Ot2P1da3Jq6J5b6W7Ukn2jLr_0Mql8XvfY-XXm9G1_H2HUFIlTrqkSzgc/exec'; // แทนที่ด้วย URL จาก GAS deployment
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzHrM4TXg-Ot2P1da3Jq6J5b6W7Ukn2jLr_0Mql8XvfY-XXm9G1_H2HUFIlTrqkSzgc/exec'; // แทนที่ด้วย URL จริงจาก GAS deployment
+
+        // Retry function for fetch
+        async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+                    const response = await fetch(url, { ...options, signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`HTTP ${response.status}: ${errorText || 'Unknown error'}`);
+                    }
+                    return await response.json();
+                } catch (error) {
+                    if (i === retries - 1) throw error;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
 
         // Preloader
         document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => {
                 document.getElementById('preloader').style.display = 'none';
             }, 1500);
-            // Initialize LIFF if needed (commented for demo)
             initializeApp();
         });
 
@@ -495,37 +514,47 @@
 
         async function fetchRecentData() {
             try {
-                const response = await fetch(`${GAS_URL}?action=getRecent`);
-                if (!response.ok) throw new Error('Failed to fetch recent data');
-                const data = await response.json();
+                const data = await fetchWithRetry(`${GAS_URL}?action=getRecent`, { method: 'GET' });
                 renderTableData('recent-data', data, false);
             } catch (error) {
-                console.error(error);
-                Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถโหลดข้อมูลล่าสุดได้' });
+                console.error('Fetch recent data error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาด',
+                    text: `ไม่สามารถโหลดข้อมูลล่าสุดได้: ${error.message}`,
+                    confirmButtonText: 'ตกลง'
+                });
             }
         }
 
         async function fetchAllData(activityFilter = '', searchTerm = '') {
             try {
                 const params = new URLSearchParams({ action: 'getAll', activity: activityFilter, search: searchTerm });
-                const response = await fetch(`${GAS_URL}?${params}`);
-                if (!response.ok) throw new Error('Failed to fetch all data');
-                const data = await response.json();
+                const data = await fetchWithRetry(`${GAS_URL}?${params}`, { method: 'GET' });
                 renderTableData('all-data', data, true);
             } catch (error) {
-                console.error(error);
-                Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถโหลดข้อมูลทั้งหมดได้' });
+                console.error('Fetch all data error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาด',
+                    text: `ไม่สามารถโหลดข้อมูลทั้งหมดได้: ${error.message}`,
+                    confirmButtonText: 'ตกลง'
+                });
             }
         }
 
         async function fetchStats() {
             try {
-                const response = await fetch(`${GAS_URL}?action=getStats`);
-                if (!response.ok) throw new Error('Failed to fetch stats');
-                return await response.json();
+                const data = await fetchWithRetry(`${GAS_URL}?action=getStats`, { method: 'GET' });
+                return data;
             } catch (error) {
-                console.error(error);
-                Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถโหลดสถิติได้' });
+                console.error('Fetch stats error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาด',
+                    text: `ไม่สามารถโหลดสถิติได้: ${error.message}`,
+                    confirmButtonText: 'ตกลง'
+                });
                 return { activityStats: {}, responsibleStats: {} };
             }
         }
@@ -533,7 +562,7 @@
         function renderTableData(containerId, data, includeActions = false) {
             const container = document.getElementById(containerId);
             container.innerHTML = '';
-            if (data.length === 0) {
+            if (!data || data.length === 0) {
                 container.innerHTML = `<tr><td colspan="${includeActions ? 7 : 6}" class="px-6 py-4 text-center text-sm text-gray-500">ไม่พบข้อมูล</td></tr>`;
                 return;
             }
@@ -564,10 +593,7 @@
             // Add event listeners
             container.querySelectorAll('.view-details').forEach(btn => btn.addEventListener('click', (e) => showDetailModal(e.target.closest('tr').dataset.id)));
             container.querySelectorAll('.acknowledge-btn').forEach(btn => btn.addEventListener('click', (e) => showSignatureModal(e.target.closest('tr').dataset.id)));
-            container.querySelectorAll('.view-signature').forEach(btn => btn.addEventListener('click', (e) => {
-                const id = e.target.closest('tr').dataset.id;
-                showSignatureView(id);
-            }));
+            container.querySelectorAll('.view-signature').forEach(btn => btn.addEventListener('click', (e) => showSignatureView(e.target.closest('tr').dataset.id)));
         }
 
         async function initCharts() {
@@ -576,10 +602,10 @@
             new Chart(activityCtx, {
                 type: 'bar',
                 data: {
-                    labels: Object.keys(stats.activityStats),
+                    labels: Object.keys(stats.activityStats || {}),
                     datasets: [{
                         label: 'จำนวนกิจกรรม',
-                        data: Object.values(stats.activityStats),
+                        data: Object.values(stats.activityStats || {}),
                         backgroundColor: 'rgba(56, 182, 255, 0.7)',
                         borderColor: 'rgba(56, 182, 255, 1)',
                         borderWidth: 1
@@ -596,9 +622,9 @@
             new Chart(responsibleCtx, {
                 type: 'pie',
                 data: {
-                    labels: Object.keys(stats.responsibleStats),
+                    labels: Object.keys(stats.responsibleStats || {}),
                     datasets: [{
-                        data: Object.values(stats.responsibleStats),
+                        data: Object.values(stats.responsibleStats || {}),
                         backgroundColor: ['rgba(255, 87, 87, 0.7)', 'rgba(82, 113, 255, 0.7)', 'rgba(56, 182, 255, 0.7)', 'rgba(255, 250, 221, 0.7)', 'rgba(255, 159, 67, 0.7)', 'rgba(46, 213, 115, 0.7)', 'rgba(155, 89, 182, 0.7)'],
                         borderColor: ['rgba(255, 87, 87, 1)', 'rgba(82, 113, 255, 1)', 'rgba(56, 182, 255, 1)', 'rgba(255, 250, 221, 1)', 'rgba(255, 159, 67, 1)', 'rgba(46, 213, 115, 1)', 'rgba(155, 89, 182, 1)'],
                         borderWidth: 1
@@ -616,54 +642,47 @@
             const form = document.getElementById('document-form');
             form.addEventListener('submit', async function(e) {
                 e.preventDefault();
-                const data = {
-                    action: 'saveDocument',
-                    date: new Date().toISOString().split('T')[0],
-                    docNumber: document.getElementById('doc-number').value,
-                    subject: document.getElementById('doc-subject').value,
-                    activity: document.getElementById('activity').value,
-                    responsible: document.getElementById('responsible').value,
-                    fileBase64: '',
-                    fileName: '',
-                    fileType: ''
-                };
+                const formData = new FormData();
+                formData.append('action', 'saveDocument');
+                formData.append('date', new Date().toISOString().split('T')[0]);
+                formData.append('docNumber', document.getElementById('doc-number').value);
+                formData.append('subject', document.getElementById('doc-subject').value);
+                formData.append('activity', document.getElementById('activity').value);
+                formData.append('responsible', document.getElementById('responsible').value);
                 const fileInput = document.getElementById('file-upload');
                 if (fileInput.files[0]) {
-                    data.fileBase64 = await fileToBase64(fileInput.files[0]);
-                    data.fileName = fileInput.files[0].name;
-                    data.fileType = fileInput.files[0].type;
+                    formData.append('file', fileInput.files[0]);
                 }
                 try {
-                    const response = await fetch(GAS_URL, {
+                    const response = await fetchWithRetry(GAS_URL, {
                         method: 'POST',
-                        body: JSON.stringify(data),
-                        headers: { 'Content-Type': 'application/json' }
+                        body: formData
                     });
-                    const result = await response.json();
-                    if (result.status === 'success') {
-                        Swal.fire({ icon: 'success', title: 'บันทึกข้อมูลสำเร็จ' }).then(() => {
+                    if (response.status === 'success') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'บันทึกข้อมูลสำเร็จ',
+                            text: 'ข้อมูลหนังสือถูกบันทึกเรียบร้อยแล้ว',
+                            confirmButtonText: 'ตกลง'
+                        }).then(() => {
                             confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-                            // Optional: Ask to share to LINE
                         });
                         fetchRecentData();
                         fetchAllData();
                         form.reset();
                         document.getElementById('file-name').textContent = '';
                     } else {
-                        throw new Error(result.message);
+                        throw new Error(response.message || 'Failed to save document');
                     }
                 } catch (error) {
-                    Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message });
+                    console.error('Save document error:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'เกิดข้อผิดพลาด',
+                        text: `ไม่สามารถบันทึกข้อมูลได้: ${error.message}`,
+                        confirmButtonText: 'ตกลง'
+                    });
                 }
-            });
-        }
-
-        function fileToBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = error => reject(error);
             });
         }
 
@@ -682,28 +701,45 @@
             document.getElementById('clear-signature').addEventListener('click', () => signaturePad.clear());
             document.getElementById('save-signature').addEventListener('click', async () => {
                 if (signaturePad.isEmpty()) {
-                    Swal.fire({ icon: 'warning', title: 'ลายเซ็นว่างเปล่า', text: 'กรุณาลงลายมือชื่อก่อนบันทึก' });
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'ลายเซ็นว่างเปล่า',
+                        text: 'กรุณาลงลายมือชื่อก่อนบันทึก',
+                        confirmButtonText: 'ตกลง'
+                    });
                     return;
                 }
                 const signatureData = signaturePad.toDataURL();
                 const documentId = document.getElementById('document-id').value;
                 try {
-                    const response = await fetch(GAS_URL, {
+                    const response = await fetchWithRetry(GAS_URL, {
                         method: 'POST',
                         body: JSON.stringify({ action: 'saveSignature', id: documentId, signature: signatureData }),
                         headers: { 'Content-Type': 'application/json' }
                     });
-                    const result = await response.json();
-                    if (result.status === 'success') {
-                        Swal.fire({ icon: 'success', title: 'บันทึกลายเซ็นสำเร็จ' }).then(() => confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } }));
+                    if (response.status === 'success') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'บันทึกลายเซ็นสำเร็จ',
+                            text: 'ลายเซ็นถูกบันทึกเรียบร้อยแล้ว',
+                            confirmButtonText: 'ตกลง'
+                        }).then(() => {
+                            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                        });
                         document.getElementById('signature-modal').style.display = 'none';
                         fetchRecentData();
                         fetchAllData();
                     } else {
-                        throw new Error(result.message);
+                        throw new Error(response.message || 'Failed to save signature');
                     }
                 } catch (error) {
-                    Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message });
+                    console.error('Save signature error:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'เกิดข้อผิดพลาด',
+                        text: `ไม่สามารถบันทึกลายเซ็นได้: ${error.message}`,
+                        confirmButtonText: 'ตกลง'
+                    });
                 }
             });
         }
@@ -720,53 +756,61 @@
 
         async function showDetailModal(id) {
             try {
-                const response = await fetch(`${GAS_URL}?action=getDetail&id=${id}`);
-                if (!response.ok) throw new Error('Failed to fetch detail');
-                const item = await response.json();
+                const data = await fetchWithRetry(`${GAS_URL}?action=getDetail&id=${id}`, { method: 'GET' });
                 const detailContent = document.getElementById('detail-content');
-                const formattedDate = formatDate(item.date);
+                const formattedDate = formatDate(data.date);
                 detailContent.innerHTML = `
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div><p class="text-sm font-medium text-gray-500">วันที่</p><p class="text-lg">${formattedDate}</p></div>
-                        <div><p class="text-sm font-medium text-gray-500">เลขที่หนังสือ</p><p class="text-lg">${item.docNumber}</p></div>
+                        <div><p class="text-sm font-medium text-gray-500">เลขที่หนังสือ</p><p class="text-lg">${data.docNumber}</p></div>
                     </div>
-                    <div><p class="text-sm font-medium text-gray-500">เรื่อง</p><p class="text-lg">${item.subject}</p></div>
+                    <div><p class="text-sm font-medium text-gray-500">เรื่อง</p><p class="text-lg">${data.subject}</p></div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><p class="text-sm font-medium text-gray-500">กิจกรรม</p><p class="text-lg">${item.activity}</p></div>
-                        <div><p class="text-sm font-medium text-gray-500">ผู้รับผิดชอบ</p><p class="text-lg">${item.responsible}</p></div>
+                        <div><p class="text-sm font-medium text-gray-500">กิจกรรม</p><p class="text-lg">${data.activity}</p></div>
+                        <div><p class="text-sm font-medium text-gray-500">ผู้รับผิดชอบ</p><p class="text-lg">${data.responsible}</p></div>
                     </div>
-                    <div><p class="text-sm font-medium text-gray-500">สถานะ</p><p class="text-lg">${item.status}</p></div>
-                    ${item.signature ? `<div><p class="text-sm font-medium text-gray-500">ลายเซ็นรับทราบ</p><img src="${item.signature}" alt="ลายเซ็น" class="mt-2 border border-gray-300 rounded-lg" style="max-height: 100px;"></div>` : ''}
-                    ${item.file ? `<div><p class="text-sm font-medium text-gray-500">ไฟล์แนบ</p><a href="https://drive.google.com/file/d/${item.file}/view" class="text-blue-600 hover:text-blue-800 flex items-center mt-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd" /></svg>${item.fileName || 'ไฟล์แนบ'}</a></div>` : ''}
+                    <div><p class="text-sm font-medium text-gray-500">สถานะ</p><p class="text-lg">${data.status}</p></div>
+                    ${data.signature ? `<div><p class="text-sm font-medium text-gray-500">ลายเซ็นรับทราบ</p><img src="${data.signature}" alt="ลายเซ็น" class="mt-2 border border-gray-300 rounded-lg" style="max-height: 100px;"></div>` : ''}
+                    ${data.file ? `<div><p class="text-sm font-medium text-gray-500">ไฟล์แนบ</p><a href="https://drive.google.com/file/d/${data.file}/view" target="_blank" class="text-blue-600 hover:text-blue-800 flex items-center mt-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd" /></svg>${data.fileName || 'ไฟล์แนบ'}</a></div>` : ''}
                 `;
                 document.getElementById('detail-modal').style.display = 'flex';
             } catch (error) {
-                Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถโหลดรายละเอียดได้' });
+                console.error('Show detail error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาด',
+                    text: `ไม่สามารถโหลดรายละเอียดได้: ${error.message}`,
+                    confirmButtonText: 'ตกลง'
+                });
             }
-        }
-
-        function showSignatureModal(id) {
-            document.getElementById('document-id').value = id;
-            signaturePad.clear();
-            document.getElementById('signature-modal').style.display = 'flex';
         }
 
         async function showSignatureView(id) {
             try {
-                const response = await fetch(`${GAS_URL}?action=getDetail&id=${id}`);
-                const item = await response.json();
-                if (item.signature) {
+                const data = await fetchWithRetry(`${GAS_URL}?action=getDetail&id=${id}`, { method: 'GET' });
+                if (data.signature) {
                     Swal.fire({
                         title: 'ลายเซ็นรับทราบ',
-                        imageUrl: item.signature,
+                        imageUrl: data.signature,
                         imageAlt: 'ลายเซ็น',
                         confirmButtonText: 'ปิด'
                     });
                 } else {
-                    Swal.fire({ icon: 'info', title: 'ไม่มีลายเซ็น' });
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'ไม่มีลายเซ็น',
+                        text: 'เอกสารนี้ยังไม่ถูกลงนามรับทราบ',
+                        confirmButtonText: 'ตกลง'
+                    });
                 }
             } catch (error) {
-                Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด' });
+                console.error('Show signature view error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาด',
+                    text: `ไม่สามารถโหลดลายเซ็นได้: ${error.message}`,
+                    confirmButtonText: 'ตกลง'
+                });
             }
         }
 
@@ -788,7 +832,7 @@
         }
 
         // Optional: Share to LINE (simulate or use LIFF)
-        // ...
+        // function shareToLine(data) { ... } // เพิ่มถ้าต้องการ
     </script>
 </body>
 </html>
