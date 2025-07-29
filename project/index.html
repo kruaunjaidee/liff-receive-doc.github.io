@@ -9,7 +9,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.5/dist/signature_pad.umd.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');
         
@@ -88,11 +87,6 @@
             100% { transform: rotate(360deg); }
         }
         
-        .signature-pad {
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-        }
-        
         .tab-active {
             border-bottom: 3px solid var(--primary);
             color: var(--primary);
@@ -123,6 +117,7 @@
         <div class="container mx-auto">
             <h1 class="text-2xl md:text-3xl font-bold text-center">ระบบแจ้งส่งหนังสือเข้า</h1>
             <p class="text-center opacity-90 mt-1">กลุ่มสาระการเรียนรู้ภาษาไทย</p>
+            <p id="doctor-display-name" class="text-center opacity-90 mt-1">กำลังโหลดชื่อผู้ใช้...</p>
         </div>
     </header>
 
@@ -393,49 +388,17 @@
         </div>
     </div>
 
-    <!-- Modal for Signature -->
-    <div id="signature-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
-            <div class="p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl font-semibold text-gray-800">ลงลายมือชื่อรับทราบ</h3>
-                    <button id="close-signature-modal" class="text-gray-500 hover:text-gray-700">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-                
-                <p class="text-sm text-gray-600 mb-4">กรุณาลงลายมือชื่อในช่องด้านล่างเพื่อยืนยันการรับทราบเอกสาร</p>
-                
-                <div class="border border-gray-300 rounded-lg mb-4">
-                    <canvas id="signature-pad" class="signature-pad w-full h-48 rounded-lg"></canvas>
-                </div>
-                
-                <div class="flex justify-between">
-                    <button id="clear-signature" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-all">
-                        ล้างลายเซ็น
-                    </button>
-                    <button id="save-signature" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all">
-                        บันทึกลายเซ็น
-                    </button>
-                </div>
-                
-                <input type="hidden" id="document-id" value="">
-            </div>
-        </div>
-    </div>
-
     <script>
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbzHrM4TXg-Ot2P1da3Jq6J5b6W7Ukn2jLr_0Mql8XvfY-XXm9G1_H2HUFIlTrqkSzgc/exec';
-        const LIFF_ID = '2005780370-27LZkWna'; // แทนที่ด้วย LIFF ID จริงจาก LINE Developers Console
+        const LIFF_ID = '2005780370-27LZkWna';
+        const LINE_BOT_ID = '@233svlmc'; // แทนที่ด้วย LINE Bot ID จริง
 
         // Retry function for fetch with enhanced error handling
         async function fetchWithRetry(url, options, retries = 3, delay = 2000) {
             for (let i = 0; i < retries; i++) {
                 try {
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased timeout to 15s
+                    const timeoutId = setTimeout(() => controller.abort(), 15000);
                     console.log(`Fetching ${url}, attempt ${i + 1}/${retries}`);
                     const response = await fetch(url, { ...options, signal: controller.signal });
                     clearTimeout(timeoutId);
@@ -458,12 +421,27 @@
 
         // Preloader and LIFF initialization
         document.addEventListener('DOMContentLoaded', async function() {
+            const doctorDisplayName = document.getElementById('doctor-display-name');
             try {
                 console.log('Initializing LIFF with ID:', LIFF_ID);
-                await liff.init({ liffId: LIFF_ID });
+                await liff.init({ liffId: LIFF_ID, withLoginOnExternalBrowser: true });
                 if (!liff.isLoggedIn()) {
                     console.log('User not logged in, redirecting to LINE login');
-                    liff.login();
+                    liff.login({ redirectUri: window.location.href });
+                    return;
+                }
+                const doctorProfile = await liff.getProfile();
+                doctorDisplayName.textContent = doctorProfile.displayName;
+                const friendship = await liff.getFriendship();
+                if (!friendship.friendFlag) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'เดี๋ยวก่อน!',
+                        text: 'คุณยังไม่ได้เป็นเพื่อนกับเรา',
+                        confirmButtonText: 'เพิ่มเพื่อน',
+                    }).then(() => {
+                        window.location = `https://line.me/R/ti/p/${LINE_BOT_ID}`;
+                    });
                     return;
                 }
                 setTimeout(() => {
@@ -471,12 +449,12 @@
                 }, 1500);
                 initializeApp();
             } catch (error) {
-                console.error('LIFF initialization failed:', error);
+                console.error('LIFF Init failed:', error);
                 Swal.fire({
                     icon: 'error',
-                    title: 'เกิดข้อผิดพลาด',
-                    text: `ไม่สามารถเริ่มต้น LIFF ได้: ${error.message}`,
-                    confirmButtonText: 'ตกลง'
+                    title: 'ข้อผิดพลาด',
+                    text: 'ไม่สามารถเริ่มต้น LIFF ได้',
+                    confirmButtonColor: '#667eea'
                 });
             }
         });
@@ -487,7 +465,6 @@
             fetchAllData();
             initCharts();
             initFormSubmission();
-            initSignaturePad();
             initModals();
             initSearchAndFilter();
         }
@@ -587,13 +564,13 @@
                     <td class="px-6 py-4 text-sm text-gray-900">${item.subject}</td>
                     <td class="px-6 py-4 text-sm text-gray-900">${item.activity}</td>
                     <td class="px-6 py-4 text-sm text-gray-900">${item.responsible}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm">${getStatusBadge(item.status, item.signature)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${getStatusBadge(item.status)}</td>
                 `;
                 if (includeActions) {
                     html += `
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
                             <button class="view-details text-blue-600 hover:text-blue-800 mr-3">รายละเอียด</button>
-                            ${item.status === 'รอการรับทราบ' ? `<button class="acknowledge-btn bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700">รับทราบ</button>` : `<button class="view-signature text-gray-600 hover:text-gray-800">ดูลายเซ็น</button>`}
+                            ${item.status === 'รอการรับทราบ' ? `<button class="acknowledge-btn bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700" data-id="${item.id}" data-doc-number="${item.docNumber}" data-subject="${item.subject}" data-activity="${item.activity}" data-responsible="${item.responsible}" data-file-link="${item.fileLink || ''}">รับทราบ</button>` : ''}
                         </td>
                     `;
                 }
@@ -601,8 +578,14 @@
                 container.appendChild(row);
             });
             container.querySelectorAll('.view-details').forEach(btn => btn.addEventListener('click', (e) => showDetailModal(e.target.closest('tr').dataset.id)));
-            container.querySelectorAll('.acknowledge-btn').forEach(btn => btn.addEventListener('click', (e) => showSignatureModal(e.target.closest('tr').dataset.id)));
-            container.querySelectorAll('.view-signature').forEach(btn => btn.addEventListener('click', (e) => showSignatureView(e.target.closest('tr').dataset.id)));
+            container.querySelectorAll('.acknowledge-btn').forEach(btn => btn.addEventListener('click', (e) => acknowledgeDocument({
+                id: btn.dataset.id,
+                docNumber: btn.dataset.docNumber,
+                subject: btn.dataset.subject,
+                activity: btn.dataset.activity,
+                responsible: btn.dataset.responsible,
+                fileLink: btn.dataset.fileLink
+            })));
         }
 
         async function initCharts() {
@@ -712,9 +695,55 @@
             });
         }
 
+        async function acknowledgeDocument(data) {
+            try {
+                const response = await fetchWithRetry(GAS_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'saveSignature', id: data.id }),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (response.status === 'success') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'รับทราบสำเร็จ',
+                        text: 'สถานะเอกสารถูกอัพเดทเป็น "รับทราบแล้ว"',
+                        confirmButtonText: 'ตกลง'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                            Swal.fire({
+                                title: 'ต้องการแชร์การรับทราบไปยัง LINE หรือไม่?',
+                                text: 'คุณสามารถส่งข้อมูลนี้ไปยังกลุ่ม LINE ได้',
+                                icon: 'question',
+                                showCancelButton: true,
+                                confirmButtonText: 'ส่งไปยัง LINE',
+                                cancelButtonText: 'ไม่ต้องการ'
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    shareToLine(data);
+                                }
+                            });
+                        }
+                    });
+                    fetchRecentData();
+                    fetchAllData();
+                } else {
+                    throw new Error(response.message || 'Failed to acknowledge document');
+                }
+            } catch (error) {
+                console.error('Acknowledge document error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาด',
+                    text: `ไม่สามารถอัพเดทสถานะได้: ${error.message}`,
+                    confirmButtonText: 'ตกลง'
+                });
+            }
+        }
+
         async function shareToLine(data) {
             try {
-                const textMessage = `📚 หนังสือเข้าใหม่\nเลขที่: ${data.docNumber}\nเรื่อง: ${data.subject}\nกิจกรรม: ${data.activity}\nผู้รับผิดชอบ: ${data.responsible}${data.fileLink ? `\nลิงก์ไฟล์: ${data.fileLink}` : ''}\nดูรายละเอียด: ${window.location.href}`;
+                const textMessage = `📚 การแจ้งเตือน\nเลขที่: ${data.docNumber}\nเรื่อง: ${data.subject}\nกิจกรรม: ${data.activity}\nผู้รับผิดชอบ: ${data.responsible}${data.fileLink ? `\nลิงก์ไฟล์: ${data.fileLink}` : ''}\nดูรายละเอียด: ${window.location.href}`;
                 const result = await liff.shareTargetPicker([
                     {
                         type: "text",
@@ -747,76 +776,6 @@
             }
         }
 
-        let signaturePad;
-        function initSignaturePad() {
-            const canvas = document.getElementById('signature-pad');
-            signaturePad = new SignaturePad(canvas, { backgroundColor: 'rgb(255, 255, 255)', penColor: 'rgb(0, 0, 0)' });
-            document.getElementById('clear-signature').addEventListener('click', () => signaturePad.clear());
-            document.getElementById('save-signature').addEventListener('click', async () => {
-                if (signaturePad.isEmpty()) {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'ลายเซ็นว่างเปล่า',
-                        text: 'กรุณาลงลายมือชื่อก่อนบันทึก',
-                        confirmButtonText: 'ตกลง'
-                    });
-                    return;
-                }
-                const signatureData = signaturePad.toDataURL();
-                const documentId = document.getElementById('document-id').value;
-                if (!documentId) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'เกิดข้อผิดพลาด',
-                        text: 'ไม่พบ ID เอกสาร กรุณาลองใหม่',
-                        confirmButtonText: 'ตกลง'
-                    });
-                    return;
-                }
-                try {
-                    console.log('Saving signature for document ID:', documentId);
-                    const response = await fetchWithRetry(GAS_URL, {
-                        method: 'POST',
-                        body: JSON.stringify({ action: 'saveSignature', id: documentId, signature: signatureData }),
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                    if (response.status === 'success') {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'บันทึกลายเซ็นสำเร็จ',
-                            text: 'ลายเซ็นถูกบันทึกเรียบร้อยแล้ว',
-                            confirmButtonText: 'ตกลง'
-                        }).then(() => {
-                            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-                        });
-                        document.getElementById('signature-modal').style.display = 'none';
-                        fetchRecentData();
-                        fetchAllData();
-                    } else {
-                        throw new Error(response.message || 'Failed to save signature');
-                    }
-                } catch (error) {
-                    console.error('Save signature error:', error);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'เกิดข้อผิดพลาด',
-                        text: `ไม่สามารถบันทึกลายเซ็นได้: ${error.message}`,
-                        confirmButtonText: 'ตกลง'
-                    });
-                }
-            });
-        }
-
-        function initModals() {
-            document.getElementById('close-detail-modal').addEventListener('click', () => document.getElementById('detail-modal').style.display = 'none');
-            document.getElementById('close-detail-btn').addEventListener('click', () => document.getElementById('detail-modal').style.display = 'none');
-            document.getElementById('close-signature-modal').addEventListener('click', () => document.getElementById('signature-modal').style.display = 'none');
-            window.addEventListener('click', (event) => {
-                if (event.target === document.getElementById('detail-modal')) document.getElementById('detail-modal').style.display = 'none';
-                if (event.target === document.getElementById('signature-modal')) document.getElementById('signature-modal').style.display = 'none';
-            });
-        }
-
         async function showDetailModal(id) {
             try {
                 const data = await fetchWithRetry(`${GAS_URL}?action=getDetail&id=${id}`, { method: 'GET' });
@@ -833,8 +792,7 @@
                         <div><p class="text-sm font-medium text-gray-500">ผู้รับผิดชอบ</p><p class="text-lg">${data.responsible}</p></div>
                     </div>
                     <div><p class="text-sm font-medium text-gray-500">สถานะ</p><p class="text-lg">${data.status}</p></div>
-                    ${data.signature ? `<div><p class="text-sm font-medium text-gray-500">ลายเซ็นรับทราบ</p><img src="${data.signature}" alt="ลายเซ็น" class="mt-2 border border-gray-300 rounded-lg" style="max-height: 100px;"></div>` : ''}
-                    ${data.fileLink ? `<div><p class="text-sm font-medium text-gray-500">ลิงก์ไฟล์</p><a href="${data.fileLink}" target="_blank" class="text-blue-600 hover:text-blue-800 flex items-center mt-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd" /></svg>ดูไฟล์</a></div>` : ''}
+                    ${data.fileLink ? `<div><p class="text-sm font間で            <div><p class="text-sm font-medium text-gray-500">ลิงก์ไฟล์</p><a href="${data.fileLink}" target="_blank" class="text-blue-600 hover:text-blue-800 flex items-center mt-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd" /></svg>ดูไฟล์</a></div>` : ''}
                 `;
                 document.getElementById('detail-modal').style.display = 'flex';
             } catch (error) {
@@ -848,40 +806,12 @@
             }
         }
 
-        function showSignatureModal(id) {
-            console.log('Opening signature modal for document ID:', id);
-            document.getElementById('document-id').value = id;
-            signaturePad.clear();
-            document.getElementById('signature-modal').style.display = 'flex';
-        }
-
-        async function showSignatureView(id) {
-            try {
-                const data = await fetchWithRetry(`${GAS_URL}?action=getDetail&id=${id}`, { method: 'GET' });
-                if (data.signature) {
-                    Swal.fire({
-                        title: 'ลายเซ็นรับทราบ',
-                        imageUrl: data.signature,
-                        imageAlt: 'ลายเซ็น',
-                        confirmButtonText: 'ปิด'
-                    });
-                } else {
-                    Swal.fire({
-                        icon: 'info',
-                        title: 'ไม่มีลายเซ็น',
-                        text: 'เอกสารนี้ยังไม่ถูกลงนามรับทราบ',
-                        confirmButtonText: 'ตกลง'
-                    });
-                }
-            } catch (error) {
-                console.error('Show signature view error:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'เกิดข้อผิดพลาด',
-                    text: `ไม่สามารถโหลดลายเซ็นได้: ${error.message}`,
-                    confirmButtonText: 'ตกลง'
-                });
-            }
+        function initModals() {
+            document.getElementById('close-detail-modal').addEventListener('click', () => document.getElementById('detail-modal').style.display = 'none');
+            document.getElementById('close-detail-btn').addEventListener('click', () => document.getElementById('detail-modal').style.display = 'none');
+            window.addEventListener('click', (event) => {
+                if (event.target === document.getElementById('detail-modal')) document.getElementById('detail-modal').style.display = 'none';
+            });
         }
 
         function initSearchAndFilter() {
@@ -896,7 +826,7 @@
             return date.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
         }
 
-        function getStatusBadge(status, signature) {
+        function getStatusBadge(status) {
             const color = status === 'รับทราบแล้ว' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
             return `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${color}">${status}</span>`;
         }
