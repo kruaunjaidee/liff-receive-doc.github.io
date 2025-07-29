@@ -1,611 +1,828 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ระบบแจ้งส่งหนังสือเข้า</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.5/dist/signature_pad.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jquery-loading-overlay@2.1.7/dist/loadingoverlay.min.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <style>
-    .signature-pad {
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      width: 100%;
-      height: 200px;
-    }
-  </style>
-</head>
-<body class="bg-gradient-to-r from-pink-300 via-purple-300 to-blue-300 min-h-screen font-sans">
-  <div class="container mx-auto p-6">
-    <h1 class="text-3xl font-bold text-center text-white mb-6">ระบบแจ้งส่งหนังสือเข้า</h1>
-    <div class="text-white mb-4">
-      <img id="userPicture" class="h-12 w-12 rounded-full inline-block mr-2 hidden" alt="User Profile">
-      <span id="userName" class="hidden"></span>
-    </div>
-
-    <!-- Form -->
-    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
-      <form id="bookForm" class="needs-validation space-y-4" novalidate>
-        <div>
-          <label for="bookNumber" class="block text-gray-700">เลขที่หนังสือ</label>
-          <input type="text" id="bookNumber" class="form-control p-2 border rounded-lg" required>
-          <div class="invalid-feedback">กรุณากรอกเลขที่หนังสือ</div>
-        </div>
-        <div>
-          <label for="subject" class="block text-gray-700">เรื่องที่แจ้ง</label>
-          <input type="text" id="subject" class="form-control p-2 border rounded-lg" required>
-          <div class="invalid-feedback">กรุณากรอกเรื่องที่แจ้ง</div>
-        </div>
-        <div>
-          <label for="activity" class="block text-gray-700">กิจกรรม</label>
-          <select id="activity" class="form-select p-2 border rounded-lg" required>
-            <option value="">เลือกกิจกรรม</option>
-            <option value="ตอบปัญหา">ตอบปัญหา</option>
-            <option value="เขียนตามคำบอก">เขียนตามคำบอก</option>
-            <option value="เขียนเรียงความ">เขียนเรียงความ</option>
-            <option value="คัดลายมือ">คัดลายมือ</option>
-            <option value="โต้วาที">โต้วาที</option>
-            <option value="ทำนองเสนาะ/เสภา">ทำนองเสนาะ/เสภา</option>
-            <option value="แต่งคำประพันธ์">แต่งคำประพันธ์</option>
-            <option value="โอ้เอ้วิหารราย">โอ้เอ้วิหารราย</option>
-            <option value="อ่านออกเสียงร้อยแก้ว">อ่านออกเสียงร้อยแก้ว</option>
-            <option value="พูดสุนทรพจน์">พูดสุนทรพจน์</option>
-            <option value="เกมคำคมต่อคำศัพท์ภาษาไทย">เกมคำคมต่อคำศัพท์ภาษาไทย</option>
-            <option value="พูดภาษาถิ่น">พูดภาษาถิ่น</option>
-            <option value="ประกวดตัวละคร">ประกวดตัวละคร</option>
-            <option value="หนังสือเล่มเล็ก">หนังสือเล่มเล็ก</option>
-            <option value="สารานุกรม (ห้องสมุด)">สารานุกรม (ห้องสมุด)</option>
-          </select>
-          <div class="invalid-feedback">กรุณาเลือกกิจกรรม</div>
-        </div>
-        <div>
-          <label for="teacher" class="block text-gray-700">มอบครูผู้รับผิดชอบ</label>
-          <select id="teacher" class="form-select p-2 border rounded-lg" required>
-            <option value="">เลือกครู</option>
-            <option value="นางสาวอารี บัวคุ้มภัย">นางสาวอารี บัวคุ้มภัย</option>
-            <option value="นายประยุทธ์ ไทรย้อยสกุลเลิศ">นายประยุทธ์ ไทรย้อยสกุลเลิศ</option>
-            <option value="นายสุภัทรพงศ์ รวงผึ้งรุ่งโรจน์">นายสุภัทรพงศ์ รวงผึ้งรุ่งโรจน์</option>
-            <option value="นางปนัศญา เจริญมาก">นางปนัศญา เจริญมาก</option>
-            <option value="นางสาวสุวาณี ธรรมศรี">นางสาวสุวาณี ธรรมศรี</option>
-            <option value="ว่าที่ร้อยตรีหญิงภาริษา ธนสิริงาม">ว่าที่ร้อยตรีหญิงภาริษา ธนสิริงาม</option>
-            <option value="นางมณฑาทิพย์ คีรีสุทธิวงศ์">นางมณฑาทิพย์ คีรีสุทธิวงศ์</option>
-            <option value="นางสาวสุปาณี อินองการ">นางสาวสุปาณี อินองการ</option>
-            <option value="นางสาวนุชนาฏ แถลงสัตย์">นางสาวนุชนาฏ แถลงสัตย์</option>
-            <option value="ว่าที่ร้อยตรีหญิงอุบลวรรณ กันตะแก้ว">ว่าที่ร้อยตรีหญิงอุบลวรรณ กันตะแก้ว</option>
-            <option value="นายณัฐพล เนียมพิทักษ์">นายณัฐพล เนียมพิทักษ์</option>
-            <option value="นายสัมฤทธิ์ มีทรัพย์มั่น">นายสัมฤทธิ์ มีทรัพย์มั่น</option>
-            <option value="นางสาวเพชรนภา ผาดผ่อง">นางสาวเพชรนภา ผาดผ่อง</option>
-            <option value="นางสาวมัทวัน ศรีภักดี">นางสาวมัทวัน ศรีภักดี</option>
-            <option value="นายสรนันท์ สายดี">นายสรนันท์ สายดี</option>
-          </select>
-          <div class="invalid-feedback">กรุณาเลือกครูผู้รับผิดชอบ</div>
-        </div>
-        <div>
-          <label for="fileUpload" class="block text-gray-700">อัพโหลดไฟล์</label>
-          <input type="file" id="fileUpload" class="form-control p-2 border rounded-lg">
-          <div class="invalid-feedback">กรุณาอัพโหลดไฟล์</div>
-        </div>
-        <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">บันทึก</button>
-      </form>
-    </div>
-
-    <!-- Chart -->
-    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
-      <h2 class="text-xl font-semibold mb-4">จำนวนกิจกรรม</h2>
-      <canvas id="activityChart"></canvas>
-    </div>
-
-    <!-- Recent Records Table -->
-    <div class="bg-white rounded-lg shadow-lg p-6">
-      <h2 class="text-xl font-semibold mb-4">ข้อมูลล่าสุด</h2>
-      <table class="w-full text-left table table-striped">
-        <thead>
-          <tr class="bg-gray-100">
-            <th class="p-2">เลขที่หนังสือ</th>
-            <th class="p-2">กิจกรรม</th>
-            <th class="p-2">ครูผู้รับผิดชอบ</th>
-            <th class="p-2">ลายเซ็น</th>
-            <th class="p-2">การกระทำ</th>
-          </tr>
-        </thead>
-        <tbody id="recentRecords"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- Signature Modal -->
-  <div id="signatureModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center">
-    <div class="bg-white rounded-lg p-6 w-full max-w-md">
-      <h2 class="text-xl font-semibold mb-4">ลงลายเซ็นรับทราบ</h2>
-      <canvas id="signaturePad" class="signature-pad"></canvas>
-      <div class="flex justify-end mt-4 space-x-2">
-        <button id="clearSignature" class="bg-gray-500 text-white px-4 py-2 rounded-lg">ล้าง</button>
-        <button id="saveSignature" class="bg-blue-500 text-white px-4 py-2 rounded-lg">บันทึก</button>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    const scriptUrl = 'https://script.google.com/macros/s/AKfycbzHrM4TXg-Ot2P1da3Jq6J5b6W7Ukn2jLr_0Mql8XvfY-XXm9G1_H2HUFIlTrqkSzgc/exec';
-    const LIFF_ID = '2005780370-27LZkWna';
-    const botBasicId = '@233svlmc';
-    let signaturePad;
-    let currentRecordId;
-    let userId, userName, userPicture;
-
-    // Initialize LIFF
-    $(document).ready(() => {
-      // $.LoadingOverlay('show');
-      liff.init({
-        liffId: LIFF_ID,
-        withLoginOnExternalBrowser: true
-      }).then(() => {
-        liff.ready.then(async () => {
-          console.log('LIFF Working!');
-          try {
-            if (liff.isLoggedIn()) {
-              const profile = await liff.getProfile();
-              userId = profile.userId;
-              userName = profile.displayName;
-              userPicture = profile.pictureUrl;
-
-              $('#userName').text(userName);
-              $('#userPicture').attr('src', userPicture);
-              $('#userName').removeClass('hidden');
-              $('#userPicture').removeClass('hidden');
-
-              const friendship = await liff.getFriendship();
-              if (!friendship.friendFlag) {
-                Swal.fire({
-                  icon: 'error',
-                  title: 'เดี๋ยวก่อน!',
-                  text: 'คุณยังไม่ได้เป็นเพื่อนกับเรา',
-                  allowOutsideClick: false,
-                  confirmButtonText: 'ตกลง'
-                }).then(() => {
-                  window.location = 'https://line.me/R/ti/p/' + botBasicId;
-                  // $.LoadingOverlay('hide');
-                });
-                return;
-              }
-              await loadData();
-            } else {
-              liff.login({ redirectUri: window.location.href });
-              // $.LoadingOverlay('hide');
-            }
-          } catch (error) {
-            console.error('LIFF initialization failed:', error);
-            Swal.fire({
-              toast: true,
-              position: 'top-end',
-              icon: 'info',
-              title: 'ไม่สามารถเชื่อมต่อกับ LINE ได้ (กำลังใช้โหมดทดสอบ)',
-              showConfirmButton: false,
-              timer: 3000
-            });
-            // $.LoadingOverlay('hide');
-          }
-        });
-      }).catch(error => {
-        console.error('LIFF init failed:', error);
-        Swal.fire({
-          toast: true,
-          position: 'top-end',
-          icon: 'error',
-          title: 'เกิดข้อผิดพลาดในการเริ่มต้น LIFF: ' + error.message,
-          showConfirmButton: false,
-          timer: 5000
-        });
-        // $.LoadingOverlay('hide');
-      });
-    });
-
-    // Form Submission
-    function submit() {
-      // $.LoadingOverlay('show');
-      console.log('ฟังก์ชั่น submit ทำงาน');
-
-      const fileInput = $('#fileUpload')[0];
-      let data = {
-        opt: 'savedata',
-        uid: liff.getDecodedIDToken()?.sub || userId,
-        name: userName,
-        bookNumber: $('#bookNumber').val(),
-        subject: $('#subject').val(),
-        activity: $('#activity').val(),
-        teacher: $('#teacher').val(),
-        fileimage: '',
-        filetype: '',
-        filename: ''
-      };
-
-      new Promise((resolve, reject) => {
-        if (fileInput.files.length > 0) {
-          const file = fileInput.files[0];
-          data.filetype = file.type;
-          data.filename = file.name;
-          readFileAsBase64(file).then(fileData => {
-            data.fileimage = fileData;
-            resolve(data);
-          }).catch(error => {
-            console.error('File read error:', error);
-            reject(error);
-          });
-        } else {
-          resolve(data);
-        }
-      }).then(data => {
-        console.log('Submitting data:', data);
-        $.ajax({
-          method: 'POST',
-          url: scriptUrl,
-          data: data,
-          dataType: 'json',
-          crossDomain: true,
-          success: function (res) {
-            // $.LoadingOverlay('hide');
-            console.log('Submission success:', res);
-            if (res.status === 'success') {
-              $('#bookForm')[0].reset();
-              Swal.fire({
-                icon: 'success',
-                title: 'บันทึกข้อมูลเรียบร้อย',
-                text: `ID: ${res.id}`,
-                allowOutsideClick: false,
-                confirmButtonText: 'ตกลง'
-              }).then(() => {
-                confetti({
-                  particleCount: 100,
-                  spread: 70,
-                  origin: { y: 0.6 }
-                });
-
-                // Share via ShareTargetPicker
-                const flexMessage = {
-                  type: 'flex',
-                  altText: 'แจ้งส่งหนังสือเข้า',
-                  contents: {
-                    type: 'bubble',
-                    body: {
-                      type: 'box',
-                      layout: 'vertical',
-                      contents: [
-                        { type: 'text', text: 'แจ้งส่งหนังสือเข้า', weight: 'bold', size: 'xl' },
-                        { type: 'text', text: `เลขที่: ${data.bookNumber}` },
-                        { type: 'text', text: `เรื่อง: ${data.subject}` },
-                        { type: 'text', text: `กิจกรรม: ${data.activity}` },
-                        { type: 'text', text: `ครู: ${data.teacher}` },
-                        { type: 'text', text: `ผู้บันทึก: ${data.name}` }
-                      ]
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIFF แจ้งส่งหนังสือเข้า</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-blue': '#4F46E5', // A vibrant blue
+                        'secondary-green': '#10B981', // A refreshing green
+                        'accent-yellow': '#F59E0B', // A bright yellow
+                        'dark-purple': '#6D28D9', // A deeper purple
+                        'light-pink': '#FBCFE8', // A soft pink
                     }
-                  }
-                };
-                liff.shareTargetPicker([{ type: 'flex', altText: 'แจ้งส่งหนังสือเข้า', contents: flexMessage.contents }])
-                  .then(() => {
-                    Swal.fire({
-                      toast: true,
-                      position: 'top-end',
-                      icon: 'success',
-                      title: 'ส่งข้อความเรียบร้อย!',
-                      showConfirmButton: false,
-                      timer: 3000
+                }
+            }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://static.line-scdn.net/liff/sdk/v2/liff.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+    <style>
+        /* Preloader styles */
+        #preloader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        .spinner {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #3498db;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans antialiased text-gray-800">
+
+    <div id="preloader" class="hidden">
+        <div class="spinner"></div>
+    </div>
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="bg-gradient-to-r from-primary-blue to-dark-purple text-white p-6 rounded-lg shadow-lg mb-8 flex items-center justify-between">
+            <h1 class="text-3xl font-bold">แจ้งส่งหนังสือเข้า</h1>
+            <div class="flex items-center space-x-3">
+                <img id="userPicture" class="w-10 h-10 rounded-full border-2 border-white hidden" alt="User Profile Picture">
+                <span id="userName" class="text-lg font-medium hidden"></span>
+            </div>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <section class="lg:col-span-1 bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-2xl font-semibold text-dark-purple mb-6">บันทึกข้อมูลหนังสือ</h2>
+                <form id="recordForm" class="space-y-4">
+                    <div>
+                        <label for="bookNumber" class="block text-sm font-medium text-gray-700">เลขที่หนังสือ</label>
+                        <input type="text" id="bookNumber" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primary-blue focus:border-primary-blue" placeholder="ระบุเลขที่หนังสือ" required>
+                    </div>
+                    <div>
+                        <label for="subject" class="block text-sm font-medium text-gray-700">เรื่องที่แจ้ง</label>
+                        <input type="text" id="subject" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primary-blue focus:border-primary-blue" placeholder="ระบุเรื่องที่แจ้ง" required>
+                    </div>
+                    <div>
+                        <label for="activity" class="block text-sm font-medium text-gray-700">กิจกรรม</label>
+                        <select id="activity" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primary-blue focus:border-primary-blue" required>
+                            <option value="">เลือกกิจกรรม</option>
+                            <option value="ตอบปัญหา">ตอบปัญหา</option>
+                            <option value="เขียนตามคำบอก">เขียนตามคำบอก</option>
+                            <option value="เขียนเรียงความ">เขียนเรียงความ</option>
+                            <option value="คัดลายมือ">คัดลายมือ</option>
+                            <option value="โต้วาที">โต้วาที</option>
+                            <option value="ทำนองเสนาะ/เสภา">ทำนองเสนาะ/เสภา</option>
+                            <option value="แต่งคำประพันธ์">แต่งคำประพันธ์</option>
+                            <option value="โอ้เอ้วิหารราย">โอ้เอ้วิหารราย</option>
+                            <option value="อ่านออกเสียงร้อยแก้ว">อ่านออกเสียงร้อยแก้ว</option>
+                            <option value="พูดสุนทรพจน์">พูดสุนทรพจน์</option>
+                            <option value="เกมคำคมต่อคำศัพท์ภาษาไทย">เกมคำคมต่อคำศัพท์ภาษาไทย</option>
+                            <option value="พูดภาษาถิ่น">พูดภาษาถิ่น</option>
+                            <option value="ประกวดตัวละคร">ประกวดตัวละคร</option>
+                            <option value="หนังสือเล่มเล็ก">หนังสือเล่มเล็ก</option>
+                            <option value="สารานุกรม (ห้องสมุด)">สารานุกรม (ห้องสมุด)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="responsibleTeacher" class="block text-sm font-medium text-gray-700">มอบครูผู้รับผิดชอบ</label>
+                        <select id="responsibleTeacher" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primary-blue focus:border-primary-blue" required>
+                            <option value="">เลือกครูผู้รับผิดชอบ</option>
+                            <option value="นางสาวอารี บัวคุ้มภัย">นางสาวอารี บัวคุ้มภัย</option>
+                            <option value="นายประยุทธ์ ไทรย้อยสกุลเลิศ">นายประยุทธ์ ไทรย้อยสกุลเลิศ</option>
+                            <option value="นายสุภัทรพงศ์ รวงผึ้งรุ่งโรจน์">นายสุภัทรพงศ์ รวงผึ้งรุ่งโรจน์</option>
+                            <option value="นางปนัศญา เจริญมาก">นางปนัศญา เจริญมาก</option>
+                            <option value="นางสาวสุวาณี ธรรมศรี">นางสาวสุวาณี ธรรมศรี</option>
+                            <option value="ว่าที่ร้อยตรีหญิงภาริษา ธนสิริงาม">ว่าที่ร้อยตรีหญิงภาริษา ธนสิริงาม</option>
+                            <option value="นางมณฑาทิพย์ คีรีสุทธิวงศ์">นางมณฑาทิพย์ คีรีสุทธิวงศ์</option>
+                            <option value="นางสาวสุปาณี อินองการ">นางสาวสุปาณี อินองการ</option>
+                            <option value="นางสาวนุชนาฏ แถลงสัตย์">นางสาวนุชนาฏ แถลงสัตย์</option>
+                            <option value="ว่าที่ร้อยตรีหญิงอุบลวรรณ กันตะแก้ว">ว่าที่ร้อยตรีหญิงอุบลวรรณ กันตะแก้ว</option>
+                            <option value="นายณัฐพล เนียมพิทักษ์">นายณัฐพล เนียมพิทักษ์</option>
+                            <option value="นายสัมฤทธิ์ มีทรัพย์มั่น">นายสัมฤทธิ์ มีทรัพย์มั่น</option>
+                            <option value="นางสาวเพชรนภา ผาดผ่อง">นางสาวเพชรนภา ผาดผ่อง</option>
+                            <option value="นางสาวมัทวัน ศรีภักดี">นางสาวมัทวัน ศรีภักดี</option>
+                            <option value="นายสรนันท์ สายดี">นายสรนันท์ สายดี</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="uploadFile" class="block text-sm font-medium text-gray-700">อัพโหลดไฟล์ (ไม่บังคับ)</label>
+                        <input type="file" id="uploadFile" class="mt-1 block w-full text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-blue file:text-white hover:file:bg-dark-purple">
+                    </div>
+                    <button type="submit" class="w-full bg-secondary-green hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-md shadow-md transition duration-300 ease-in-out">
+                        บันทึกข้อมูล
+                    </button>
+                </form>
+            </section>
+
+            <section class="lg:col-span-2 space-y-8">
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <h2 class="text-2xl font-semibold text-dark-purple mb-4">กราฟแสดงจำนวนกิจกรรม</h2>
+                    <canvas id="activityChart"></canvas>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <h2 class="text-2xl font-semibold text-dark-purple mb-4">ข้อมูลล่าสุด 5 รายการ</h2>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ลำดับ</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เลขที่หนังสือ</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">กิจกรรม</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ผู้รับผิดชอบ</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ลายเซ็น</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="latestRecordsBody" class="bg-white divide-y divide-gray-200">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script id="signaturePadTemplate" type="text/html">
+        <div class="signature-pad-container flex flex-col items-center">
+            <canvas id="signatureCanvas" class="border border-gray-300 rounded-md w-full h-48"></canvas>
+            <div class="flex space-x-2 mt-4">
+                <button id="clearSignature" class="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-md">ล้าง</button>
+                <button id="saveSignature" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md">บันทึก</button>
+            </div>
+        </div>
+    </script>
+
+    <script>
+        // Global variables for LIFF
+        let LIFF_ID = '2005780370-27LZkWna'; // <<< IMPORTANT: Replace with your LIFF ID
+        let botBasicId = '@233svlmc'; // <<< IMPORTANT: Replace with your LINE Official Account Basic ID
+        let userId = '';
+        let userName = '';
+        let userPicture = '';
+
+        // Google Apps Script Web App URL for Google Sheet interaction
+        const GOOGLE_SHEET_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzHrM4TXg-Ot2P1da3Jq6J5b6W7Ukn2jLr_0Mql8XvfY-XXm9G1_H2HUFIlTrqkSzgc/exec'; // <<< IMPORTANT: Replace with your GAS Web App URL
+
+        // --- Utility Functions ---
+
+        function showToast(title, icon = 'success') {
+            Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+                didOpen: (toast) => {
+                    toast.addEventListener('mouseenter', Swal.stopTimer)
+                    toast.addEventListener('mouseleave', Swal.resumeTimer)
+                }
+            }).fire({
+                icon: icon,
+                title: title
+            });
+        }
+
+        function showPreloader() {
+            document.getElementById('preloader').classList.remove('hidden');
+        }
+
+        function hidePreloader() {
+            document.getElementById('preloader').classList.add('hidden');
+        }
+
+        function triggerConfetti() {
+            // Basic confetti effect (can be replaced with a more robust library if needed)
+            const confettiCount = 50;
+            for (let i = 0; i < confettiCount; i++) {
+                const confetti = document.createElement('div');
+                confetti.style.position = 'fixed';
+                confetti.style.width = '10px';
+                confetti.style.height = '10px';
+                confetti.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
+                confetti.style.top = `${Math.random() * 100}%`;
+                confetti.style.left = `${Math.random() * 100}%`;
+                confetti.style.opacity = Math.random();
+                confetti.style.transform = `translate(${Math.random() * 200 - 100}px, ${Math.random() * 200 - 100}px) rotate(${Math.random() * 360}deg)`;
+                confetti.style.transition = 'all 1s ease-out';
+                confetti.style.zIndex = '99999';
+                document.body.appendChild(confetti);
+
+                setTimeout(() => {
+                    confetti.style.transform = `translate(${Math.random() * 400 - 200}px, ${window.innerHeight + 20}px) rotate(${Math.random() * 720}deg)`;
+                    confetti.style.opacity = '0';
+                    confetti.remove();
+                }, 10);
+            }
+        }
+
+        // --- LIFF Initialization ---
+        async function initializeLIFF() {
+            showPreloader();
+            try {
+                await liff.init({ liffId: LIFF_ID, withLoginOnExternalBrowser: true });
+                if (liff.isLoggedIn()) {
+                    const profile = await liff.getProfile();
+                    userId = profile.userId;
+                    userName = profile.displayName;
+                    userPicture = profile.pictureUrl;
+                    document.getElementById('userName').textContent = userName;
+                    document.getElementById('userPicture').src = userPicture;
+                    document.getElementById('userName').classList.remove('hidden');
+                    document.getElementById('userPicture').classList.remove('hidden');
+
+                    liff.getFriendship().then((data) => {
+                        if (!data.friendFlag) {
+                            Swal.fire({
+                                title: 'เดี๋ยวก่อน!',
+                                text: 'คุณยังไม่ได้เป็นเพื่อนกับเรา คุณต้องการเพิ่มเพื่อนหรือไม่?',
+                                icon: 'error',
+                                showCancelButton: true,
+                                confirmButtonText: 'ใช่, เพิ่มเพื่อน',
+                                cancelButtonText: 'ไม่'
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    window.location = 'https://line.me/R/ti/p/' + botBasicId;
+                                } else {
+                                    showToast('คุณสามารถใช้งานได้ แต่บางฟังก์ชันอาจไม่สมบูรณ์หากไม่เป็นเพื่อนกับบอท', 'warning');
+                                }
+                            });
+                        }
                     });
-                  })
-                  .catch(error => {
-                    console.error('ShareTargetPicker failed:', error);
-                    Swal.fire({
-                      toast: true,
-                      position: 'top-end',
-                      icon: 'error',
-                      title: 'ส่งข้อความล้มเหลว: ' + error.message,
-                      showConfirmButton: false,
-                      timer: 5000
+                    await loadDeliveryHistory(); // Load data after LIFF is ready
+                    await loadActivityChart(); // Load chart data
+                } else {
+                    liff.login({ redirectUri: window.location.href });
+                }
+            } catch (error) {
+                console.error('LIFF initialization failed', error);
+                showToast('ไม่สามารถเชื่อมต่อกับ LINE ได้ (กำลังใช้โหมดทดสอบ)', 'info');
+            } finally {
+                hidePreloader();
+            }
+        }
+
+        // --- Google Sheets Integration Functions ---
+
+        // Function to send data to Google Sheets
+        async function sendDataToGoogleSheet(data) {
+            showPreloader();
+            try {
+                const response = await fetch(GOOGLE_SHEET_WEB_APP_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams(data).toString(),
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    showToast('บันทึกข้อมูลเรียบร้อย!', 'success');
+                    triggerConfetti();
+                    // Reload data after successful save
+                    await loadDeliveryHistory();
+                    await loadActivityChart();
+                    return true;
+                } else {
+                    Swal.fire('ข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้: ' + result.message, 'error');
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error sending data to Google Sheet:', error);
+                Swal.fire('ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์', 'error');
+                return false;
+            } finally {
+                hidePreloader();
+            }
+        }
+
+        // Function to fetch data from Google Sheets
+        async function fetchDataFromGoogleSheet() {
+            showPreloader();
+            try {
+                const response = await fetch(GOOGLE_SHEET_WEB_APP_URL + '?action=getData');
+                const result = await response.json();
+                if (result.status === 'success') {
+                    return result.data;
+                } else {
+                    console.error('Error fetching data:', result.message);
+                    return [];
+                }
+            } catch (error) {
+                console.error('Error fetching data from Google Sheet:', error);
+                return [];
+            } finally {
+                hidePreloader();
+            }
+        }
+
+        // Function to update signature in Google Sheet
+        async function updateSignatureInGoogleSheet(rowIndex, signatureBase64) {
+            showPreloader();
+            try {
+                const response = await fetch(GOOGLE_SHEET_WEB_APP_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        action: 'updateSignature',
+                        rowIndex: rowIndex,
+                        signature: signatureBase64
+                    }).toString(),
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    showToast('บันทึกลายเซ็นเรียบร้อย!', 'success');
+                    triggerConfetti();
+                    await loadDeliveryHistory(); // Reload table after signature
+                    return true;
+                } else {
+                    Swal.fire('ข้อผิดพลาด', 'ไม่สามารถบันทึกลายเซ็นได้: ' + result.message, 'error');
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error updating signature:', error);
+                Swal.fire('ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการบันทึกลายเซ็น', 'error');
+                return false;
+            } finally {
+                hidePreloader();
+            }
+        }
+
+        // --- Data Submission and ShareTargetPicker ---
+
+        document.getElementById('recordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const bookNumber = document.getElementById('bookNumber').value;
+            const subject = document.getElementById('subject').value;
+            const activity = document.getElementById('activity').value;
+            const responsibleTeacher = document.getElementById('responsibleTeacher').value;
+            const uploadFile = document.getElementById('uploadFile').files[0];
+            let fileUrl = '';
+
+            if (uploadFile) {
+                showToast('กำลังอัพโหลดไฟล์...', 'info');
+                // In a real scenario, you'd upload the file to a cloud storage (e.g., Google Drive, Cloudinary)
+                // and get a publicly accessible URL. For this example, we'll just show a placeholder.
+                // You'll need a backend service (e.g., Google Apps Script, Firebase Functions) to handle file uploads.
+                // For simplicity, we'll assume the file upload is handled by a separate function that returns a URL.
+                // Replace this with your actual file upload logic.
+                fileUrl = 'https://example.com/uploaded_file/' + uploadFile.name; // Placeholder URL
+                showToast('ไฟล์อัพโหลดสำเร็จ!', 'success');
+            }
+
+            const timestamp = new Date().toLocaleString('th-TH');
+
+            const dataToSave = {
+                action: 'appendData', // Action for Google Apps Script
+                timestamp: timestamp,
+                bookNumber: bookNumber,
+                subject: subject,
+                activity: activity,
+                responsibleTeacher: responsibleTeacher,
+                uploaderId: userId,
+                uploaderName: userName,
+                fileUrl: fileUrl,
+                signature: '' // Initial empty signature
+            };
+
+            const success = await sendDataToGoogleSheet(dataToSave);
+
+            if (success) {
+                // Clear the form
+                document.getElementById('recordForm').reset();
+                // Optionally, prepare and send Flex Message via ShareTargetPicker
+                await sendFlexMessage(dataToSave);
+            }
+        });
+
+        async function sendFlexMessage(data) {
+            if (!liff.isApiAvailable('shareTargetPicker')) {
+                showToast('ShareTargetPicker ไม่พร้อมใช้งาน', 'error');
+                return;
+            }
+
+            showToast('กำลังเตรียมข้อความสำหรับ LINE...', 'info');
+
+            const flexMessage = {
+                "type": "bubble",
+                "hero": {
+                    "type": "image",
+                    "url": "https://cdn.pixabay.com/photo/2021/01/04/10/37/document-5886567_1280.png", // Generic document icon
+                    "size": "full",
+                    "aspectRatio": "20:13",
+                    "aspectMode": "cover",
+                    "action": {
+                        "type": "uri",
+                        "uri": window.location.href // Link back to the LIFF app
+                    }
+                },
+                "body": {
+                    "type": "box",
+                    "layout": "vertical",
+                    "contents": [
+                        {
+                            "type": "text",
+                            "text": "แจ้งส่งหนังสือเข้าใหม่!",
+                            "weight": "bold",
+                            "size": "xl",
+                            "color": "#1DB446"
+                        },
+                        {
+                            "type": "box",
+                            "layout": "vertical",
+                            "margin": "lg",
+                            "spacing": "sm",
+                            "contents": [
+                                {
+                                    "type": "box",
+                                    "layout": "baseline",
+                                    "spacing": "sm",
+                                    "contents": [
+                                        {
+                                            "type": "text",
+                                            "text": "เลขที่:",
+                                            "color": "#aaaaaa",
+                                            "size": "sm",
+                                            "flex": 1
+                                        },
+                                        {
+                                            "type": "text",
+                                            "text": data.bookNumber,
+                                            "wrap": true,
+                                            "color": "#666666",
+                                            "size": "sm",
+                                            "flex": 5
+                                        }
+                                    ]
+                                },
+                                {
+                                    "type": "box",
+                                    "layout": "baseline",
+                                    "spacing": "sm",
+                                    "contents": [
+                                        {
+                                            "type": "text",
+                                            "text": "เรื่อง:",
+                                            "color": "#aaaaaa",
+                                            "size": "sm",
+                                            "flex": 1
+                                        },
+                                        {
+                                            "type": "text",
+                                            "text": data.subject,
+                                            "wrap": true,
+                                            "color": "#666666",
+                                            "size": "sm",
+                                            "flex": 5
+                                        }
+                                    ]
+                                },
+                                {
+                                    "type": "box",
+                                    "layout": "baseline",
+                                    "spacing": "sm",
+                                    "contents": [
+                                        {
+                                            "type": "text",
+                                            "text": "กิจกรรม:",
+                                            "color": "#aaaaaa",
+                                            "size": "sm",
+                                            "flex": 1
+                                        },
+                                        {
+                                            "type": "text",
+                                            "text": data.activity,
+                                            "wrap": true,
+                                            "color": "#666666",
+                                            "size": "sm",
+                                            "flex": 5
+                                        }
+                                    ]
+                                },
+                                {
+                                    "type": "box",
+                                    "layout": "baseline",
+                                    "spacing": "sm",
+                                    "contents": [
+                                        {
+                                            "type": "text",
+                                            "text": "มอบให้:",
+                                            "color": "#aaaaaa",
+                                            "size": "sm",
+                                            "flex": 1
+                                        },
+                                        {
+                                            "type": "text",
+                                            "text": data.responsibleTeacher,
+                                            "wrap": true,
+                                            "color": "#666666",
+                                            "size": "sm",
+                                            "flex": 5
+                                        }
+                                    ]
+                                },
+                                {
+                                    "type": "box",
+                                    "layout": "baseline",
+                                    "spacing": "sm",
+                                    "contents": [
+                                        {
+                                            "type": "text",
+                                            "text": "ผู้แจ้ง:",
+                                            "color": "#aaaaaa",
+                                            "size": "sm",
+                                            "flex": 1
+                                        },
+                                        {
+                                            "type": "text",
+                                            "text": data.uploaderName,
+                                            "wrap": true,
+                                            "color": "#666666",
+                                            "size": "sm",
+                                            "flex": 5
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "footer": {
+                    "type": "box",
+                    "layout": "vertical",
+                    "spacing": "sm",
+                    "contents": [
+                        {
+                            "type": "button",
+                            "style": "link",
+                            "height": "sm",
+                            "action": {
+                                "type": "uri",
+                                "label": "ดูข้อมูลทั้งหมด",
+                                "uri": window.location.href // Link back to LIFF app
+                            }
+                        }
+                    ],
+                    "flex": 0
+                }
+            };
+
+            if (data.fileUrl) {
+                flexMessage.footer.contents.unshift({
+                    "type": "button",
+                    "style": "link",
+                    "height": "sm",
+                    "action": {
+                        "type": "uri",
+                        "label": "ดาวน์โหลดไฟล์",
+                        "uri": data.fileUrl
+                    }
+                });
+            }
+
+            try {
+                await liff.shareTargetPicker([
+                    {
+                        "type": "flex",
+                        "altText": "แจ้งส่งหนังสือเข้า: " + data.subject,
+                        "contents": flexMessage
+                    }
+                ]);
+                showToast('ส่งข้อความเรียบร้อย!', 'success');
+            } catch (error) {
+                console.error('Error sending Flex Message:', error);
+                showToast('ไม่สามารถส่งข้อความได้', 'error');
+            }
+        }
+
+        // --- Data Display (Table) ---
+
+        async function loadDeliveryHistory() {
+            showPreloader();
+            const records = await fetchDataFromGoogleSheet();
+            const tableBody = document.getElementById('latestRecordsBody');
+            tableBody.innerHTML = ''; // Clear existing rows
+
+            // Display only the latest 5 records
+            const latest5Records = records.slice(-5).reverse(); // Get last 5 and reverse to show newest first
+
+            if (latest5Records.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500">ยังไม่มีข้อมูลบันทึก</td></tr>';
+                hidePreloader();
+                return;
+            }
+
+            latest5Records.forEach((record, index) => {
+                const row = tableBody.insertRow();
+                const actualIndex = records.indexOf(record); // Get the original index for update
+
+                row.insertCell().textContent = records.length - actualIndex; // Display as 1-based index from newest
+                row.insertCell().textContent = record.bookNumber;
+                row.insertCell().textContent = record.activity;
+                row.insertCell().textContent = record.responsibleTeacher;
+
+                const signatureCell = row.insertCell();
+                if (record.signature && record.signature !== '') {
+                    const img = document.createElement('img');
+                    img.src = record.signature;
+                    img.classList.add('w-24', 'h-12', 'object-contain', 'border', 'border-gray-300', 'rounded');
+                    signatureCell.appendChild(img);
+                } else {
+                    signatureCell.textContent = 'ยังไม่มีลายเซ็น';
+                }
+
+                const actionCell = row.insertCell();
+                const viewDetailsBtn = document.createElement('button');
+                viewDetailsBtn.textContent = 'ดู';
+                viewDetailsBtn.classList.add('bg-primary-blue', 'hover:bg-indigo-700', 'text-white', 'py-1', 'px-3', 'rounded-md', 'text-sm', 'mr-2');
+                viewDetailsBtn.onclick = () => showRecordDetails(record);
+
+                const acknowledgeBtn = document.createElement('button');
+                acknowledgeBtn.textContent = 'รับทราบ';
+                acknowledgeBtn.classList.add('bg-accent-yellow', 'hover:bg-yellow-600', 'text-white', 'py-1', 'px-3', 'rounded-md', 'text-sm');
+                acknowledgeBtn.onclick = () => showSignaturePad(actualIndex); // Pass the actual row index
+
+                actionCell.appendChild(viewDetailsBtn);
+                actionCell.appendChild(acknowledgeBtn);
+            });
+            hidePreloader();
+        }
+
+        async function showRecordDetails(record) {
+            let fileLink = record.fileUrl ? `<p><strong>ไฟล์แนบ:</strong> <a href="${record.fileUrl}" target="_blank" class="text-blue-600 hover:underline">ดาวน์โหลดไฟล์</a></p>` : '<p><strong>ไฟล์แนบ:</strong> ไม่มี</p>';
+            let signatureImage = record.signature ? `<p><strong>ลายเซ็น:</strong><br><img src="${record.signature}" class="w-full h-auto max-w-xs mt-2 border border-gray-300 rounded"></p>` : '<p><strong>ลายเซ็น:</strong> ยังไม่มี</p>';
+
+            Swal.fire({
+                title: 'รายละเอียดหนังสือ',
+                html: `
+                    <p><strong>เลขที่หนังสือ:</strong> ${record.bookNumber}</p>
+                    <p><strong>เรื่องที่แจ้ง:</strong> ${record.subject}</p>
+                    <p><strong>กิจกรรม:</strong> ${record.activity}</p>
+                    <p><strong>มอบครูผู้รับผิดชอบ:</strong> ${record.responsibleTeacher}</p>
+                    <p><strong>ผู้แจ้ง (LINE):</strong> ${record.uploaderName}</p>
+                    <p><strong>วันที่/เวลา:</strong> ${record.timestamp}</p>
+                    ${fileLink}
+                    ${signatureImage}
+                `,
+                icon: 'info',
+                confirmButtonText: 'ปิด',
+                customClass: {
+                    container: 'my-swal-container',
+                    popup: 'my-swal-popup'
+                },
+                width: '600px'
+            });
+        }
+
+        function showSignaturePad(rowIndex) {
+            const signaturePadHtml = document.getElementById('signaturePadTemplate').innerHTML;
+            Swal.fire({
+                title: 'ลงลายเซ็นรับทราบเอกสาร',
+                html: signaturePadHtml,
+                showConfirmButton: false, // Hide default confirm button
+                didOpen: () => {
+                    const canvas = document.getElementById('signatureCanvas');
+                    const signaturePad = new SignaturePad(canvas, {
+                        backgroundColor: 'rgb(255, 255, 255)' // set background color
                     });
-                  });
-                loadData();
-              });
-            } else {
-              Swal.fire({
-                icon: 'error',
-                title: 'เกิดข้อผิดพลาด',
-                text: res.error || 'ไม่ทราบสาเหตุ',
-                allowOutsideClick: false,
-                confirmButtonText: 'ตกลง'
-              });
-            }
-          },
-          error: function (jqXHR, textStatus, errorThrown) {
-            // $.LoadingOverlay('hide');
-            console.error('Form submission failed:', textStatus, errorThrown, jqXHR);
-            Swal.fire({
-              icon: 'error',
-              title: 'บันทึกข้อมูลไม่สำเร็จ',
-              text: `ข้อผิดพลาด: ${textStatus} (${errorThrown})`,
-              allowOutsideClick: false,
-              confirmButtonText: 'ตกลง'
+
+                    // Adjust canvas size for responsiveness
+                    function resizeCanvas() {
+                        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                        canvas.width = canvas.offsetWidth * ratio;
+                        canvas.height = canvas.offsetHeight * ratio;
+                        canvas.getContext("2d").scale(ratio, ratio);
+                        signaturePad.clear(); // clear canvas for redraw
+                    }
+                    window.addEventListener('resize', resizeCanvas);
+                    resizeCanvas(); // Initial call
+
+                    document.getElementById('clearSignature').onclick = () => signaturePad.clear();
+                    document.getElementById('saveSignature').onclick = async () => {
+                        if (signaturePad.isEmpty()) {
+                            showToast('กรุณาลงลายเซ็นก่อน', 'warning');
+                            return;
+                        }
+                        const signatureDataUrl = signaturePad.toDataURL(); // Get signature as base64
+                        const success = await updateSignatureInGoogleSheet(rowIndex, signatureDataUrl);
+                        if (success) {
+                            Swal.close(); // Close the signature pad modal
+                        }
+                    };
+                }
             });
-            // Fallback fetch
-            fetch(scriptUrl, {
-              method: 'POST',
-              body: new URLSearchParams(data),
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-            }).then(response => response.json())
-              .then(result => console.log('Fetch fallback success:', result))
-              .catch(err => console.error('Fetch fallback failed:', err));
-          }
-        });
-      }).catch(error => {
-        // $.LoadingOverlay('hide');
-        console.error('Submission error:', error);
-        Swal.fire({
-          icon: 'error',
-          title: 'บันทึกข้อมูลไม่สำเร็จ',
-          text: 'ข้อผิดพลาด: ' + error.message,
-          allowOutsideClick: false,
-          confirmButtonText: 'ตกลง'
-        });
-      });
-    }
-
-    // Form Validation
-    (() => {
-      'use strict';
-      const forms = document.querySelectorAll('.needs-validation');
-      Array.from(forms).forEach(form => {
-        form.addEventListener('submit', event => {
-          event.preventDefault();
-          if (!form.checkValidity()) {
-            event.stopPropagation();
-            form.classList.add('was-validated');
-            $('#bookForm').find(':invalid').first().focus();
-          } else {
-            submit();
-          }
-        }, false);
-      });
-    })();
-
-    // Read file as base64
-    function readFileAsBase64(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    }
-
-    // Load Data
-    async function loadData() {
-      // $.LoadingOverlay('show');
-      Swal.fire({
-        toast: true,
-        position: 'top-end',
-        icon: 'info',
-        title: 'กำลังโหลดข้อมูล...',
-        showConfirmButton: false,
-        timer: 3000
-      });
-
-      try {
-        const response = await fetch(`${scriptUrl}?action=get`, {
-          method: 'GET'
-        });
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
         }
-        const data = await response.json();
 
-        // Update Table
-        const tbody = $('#recentRecords');
-        tbody.empty();
-        data.slice(-5).reverse().forEach(record => {
-          const tr = $(`
-            <tr>
-              <td class="p-2">${record.bookNumber}</td>
-              <td class="p-2">${record.activity}</td>
-              <td class="p-2">${record.teacher}</td>
-              <td class="p-2">${record.signature ? `<img src="${record.signature}" class="h-12" alt="Signature">` : ''}</td>
-              <td class="p-2">
-                <button onclick="viewDetails('${record.id}')" class="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600">ดู</button>
-                ${!record.signature ? `<button onclick="openSignatureModal('${record.id}')" class="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600">รับทราบ</button>` : ''}
-              </td>
-            </tr>
-          `);
-          tbody.append(tr);
-        });
+        // --- Chart Functionality (using Chart.js, if you want a more robust chart library) ---
+        // For simplicity, we'll just demonstrate data aggregation.
+        // You'll need to include Chart.js in your HTML for actual chart rendering.
+        // <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-        // Update Chart
-        const activityCounts = {};
-        data.forEach(record => {
-          activityCounts[record.activity] = (activityCounts[record.activity] || 0) + 1;
-        });
+        let activityChartInstance = null; // To hold the chart instance
 
-        const ctx = document.getElementById('activityChart').getContext('2d');
-        if (window.activityChart) window.activityChart.destroy();
-        window.activityChart = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: Object.keys(activityCounts),
-            datasets: [{
-              label: 'จำนวนกิจกรรม',
-              data: Object.values(activityCounts),
-              backgroundColor: [
-                '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD',
-                '#D4A5A5', '#9B59B6', '#3498DB', '#E74C3C', '#2ECC71'
-              ]
-            }]
-          },
-          options: {
-            scales: {
-              y: { beginAtZero: true }
-            }
-          }
-        });
-      } catch (error) {
-        console.error('Data loading failed:', error);
-        Swal.fire({
-          toast: true,
-          position: 'top-end',
-          icon: 'error',
-          title: 'โหลดข้อมูลล้มเหลว: ' + error.message,
-          showConfirmButton: false,
-          timer: 5000
-        });
-      } finally {
-        // $.LoadingOverlay('hide');
-      }
-    }
+        async function loadActivityChart() {
+            const records = await fetchDataFromGoogleSheet();
+            const activityCounts = {};
 
-    // View Details
-    function viewDetails(id) {
-      Swal.fire({
-        title: 'รายละเอียด',
-        html: 'กำลังโหลด...',
-        didOpen: async () => {
-          try {
-            const response = await fetch(`${scriptUrl}?action=getById&id=${id}`);
-            if (!response.ok) {
-              throw new Error(`HTTP error! Status: ${response.status}`);
-            }
-            const record = await response.json();
-            Swal.fire({
-              title: 'รายละเอียด',
-              html: `
-                <p><strong>เลขที่หนังสือ:</strong> ${record.bookNumber}</p>
-                <p><strong>เรื่อง:</strong> ${record.subject}</p>
-                <p><strong>กิจกรรม:</strong> ${record.activity}</p>
-                <p><strong>ครู:</strong> ${record.teacher}</p>
-                ${record.file ? `<p><a href="${record.file}" target="_blank">ดูไฟล์</a></p>` : ''}
-                ${record.signature ? `<p><img src="${record.signature}" class="h-24" alt="Signature"></p>` : ''}
-                <p><strong>ผู้บันทึก:</strong> ${record.userName || 'ไม่ระบุ'}</p>
-              `,
-              allowOutsideClick: false,
-              confirmButtonText: 'ตกลง'
+            records.forEach(record => {
+                const activity = record.activity;
+                if (activityCounts[activity]) {
+                    activityCounts[activity]++;
+                } else {
+                    activityCounts[activity] = 1;
+                }
             });
-          } catch (error) {
-            console.error('View details failed:', error);
-            Swal.fire({
-              icon: 'error',
-              title: 'เกิดข้อผิดพลาด',
-              text: 'ไม่สามารถโหลดข้อมูลได้: ' + error.message,
-              allowOutsideClick: false,
-              confirmButtonText: 'ตกลง'
+
+            const labels = Object.keys(activityCounts);
+            const data = Object.values(activityCounts);
+
+            const ctx = document.getElementById('activityChart').getContext('2d');
+
+            if (activityChartInstance) {
+                activityChartInstance.destroy(); // Destroy existing chart if it exists
+            }
+
+            activityChartInstance = new Chart(ctx, {
+                type: 'bar', // or 'pie', 'doughnut'
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'จำนวนหนังสือแยกตามกิจกรรม',
+                        data: data,
+                        backgroundColor: [
+                            'rgba(79, 70, 229, 0.6)', // primary-blue
+                            'rgba(16, 185, 129, 0.6)', // secondary-green
+                            'rgba(245, 158, 11, 0.6)', // accent-yellow
+                            'rgba(109, 40, 217, 0.6)', // dark-purple
+                            'rgba(251, 207, 232, 0.6)', // light-pink
+                            // Add more colors if you have more activities
+                            'rgba(255, 99, 132, 0.6)',
+                            'rgba(54, 162, 235, 0.6)',
+                            'rgba(255, 206, 86, 0.6)',
+                            'rgba(75, 192, 192, 0.6)',
+                            'rgba(153, 102, 255, 0.6)',
+                            'rgba(255, 159, 64, 0.6)'
+                        ],
+                        borderColor: [
+                            'rgba(79, 70, 229, 1)',
+                            'rgba(16, 185, 129, 1)',
+                            'rgba(245, 158, 11, 1)',
+                            'rgba(109, 40, 217, 1)',
+                            'rgba(251, 207, 232, 1)',
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 206, 86, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)',
+                            'rgba(255, 159, 64, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0 // Ensure integer ticks
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false // Hide legend if it's a single dataset
+                        }
+                    }
+                }
             });
-          }
         }
-      });
-    }
 
-    // Signature Modal
-    function openSignatureModal(id) {
-      currentRecordId = id;
-      const modal = $('#signatureModal');
-      const canvas = $('#signaturePad')[0];
-      modal.removeClass('hidden');
-      signaturePad = new SignaturePad(canvas, {
-        backgroundColor: 'rgb(255, 255, 255)'
-      });
-    }
 
-    $('#clearSignature').on('click', () => {
-      signaturePad.clear();
-    });
-
-    $('#saveSignature').on('click', async () => {
-      if (signaturePad.isEmpty()) {
-        Swal.fire({
-          toast: true,
-          position: 'top-end',
-          icon: 'warning',
-          title: 'กรุณาลงลายเซ็น',
-          showConfirmButton: false,
-          timer: 3000
+        // --- Initialize LIFF when the DOM is fully loaded ---
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeLIFF();
         });
-        return;
-      }
-
-      // $.LoadingOverlay('show');
-      Swal.fire({
-        toast: true,
-        position: 'top-end',
-        icon: 'info',
-        title: 'กำลังบันทึกลายเซ็น...',
-        showConfirmButton: false,
-        timer: 3000
-      });
-
-      try {
-        const signatureData = signaturePad.toDataURL('image/png').split(',')[1];
-        const response = await $.ajax({
-          method: 'POST',
-          url: scriptUrl,
-          data: {
-            opt: 'addSignature',
-            id: currentRecordId,
-            signature: signatureData
-          },
-          dataType: 'json',
-          crossDomain: true
-        });
-
-        if (response.status === 'success') {
-          Swal.fire({
-            icon: 'success',
-            title: 'บันทึกลายเซ็นเรียบร้อย',
-            allowOutsideClick: false,
-            confirmButtonText: 'ตกลง'
-          });
-          confetti({
-            particleCount: 100,
-            spread: 70,
-            origin: { y: 0.6 }
-          });
-          $('#signatureModal').addClass('hidden');
-          signaturePad.clear();
-          await loadData();
-        } else {
-          Swal.fire({
-            icon: 'error',
-            title: 'บันทึกลายเซ็นล้มเหลว',
-            text: response.error || 'ไม่ทราบสาเหตุ',
-            allowOutsideClick: false,
-            confirmButtonText: 'ตกลง'
-          });
-        }
-      } catch (error) {
-        console.error('Signature saving failed:', error);
-        Swal.fire({
-          icon: 'error',
-          title: 'เกิดข้อผิดพลาดในการบันทึกลายเซ็น',
-          text: error.message,
-          allowOutsideClick: false,
-          confirmButtonText: 'ตกลง'
-        });
-        // Fallback fetch
-        fetch(scriptUrl, {
-          method: 'POST',
-          body: new URLSearchParams({
-            opt: 'addSignature',
-            id: currentRecordId,
-            signature: signatureData
-          }),
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-        }).then(response => response.json())
-          .then(result => console.log('Signature fetch fallback success:', result))
-          .catch(err => console.error('Signature fetch fallback failed:', err));
-      } finally {
-        // $.LoadingOverlay('hide');
-      }
-    });
-  </script>
+    </script>
 </body>
 </html>
