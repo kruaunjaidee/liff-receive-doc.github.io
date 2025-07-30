@@ -1,1130 +1,4 @@
-<!-- Stats Section -->
-        <div id="section-stats" class="tab-section hidden">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="bg-white rounded-xl shadow-lg p-6">
-                    <h2 class="text-xl font-semibold mb-4 text-gray-800">สถิติตามกิจกรรม</h2>
-                    <div class="h-80">
-                        <canvas id="activity-chart"></canvas>
-                    </div>
-                </div>
-                
-                <div class="bg-white rounded-xl shadow-lg p-6">
-                    <h2 class="text-xl font-semibold mb-4 text-gray-800">สถิติตามผู้รับผิดชอบ</h2>
-                    <div class="h-80">
-                        <canvas id="responsible-chart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- Modal for Document Details -->
-    <div id="detail-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div class="p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl font-semibold text-gray-800">รายละเอียดหนังสือ</h3>
-                    <button id="close-detail-modal" class="text-gray-500 hover:text-gray-700">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-                
-                <div id="detail-content" class="space-y-4">
-                    <!-- Details will be loaded here -->
-                </div>
-                
-                <div class="mt-6 flex justify-end">
-                    <button id="close-detail-btn" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-all">
-                        ปิด
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Global variables
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzHrM4TXg-Ot2P1da3Jq6J5b6W7Ukn2jLr_0Mql8XvfY-XXm9G1_H2HUFIlTrqkSzgc/exec';
-        const LIFF_ID = '2005780370-27LZkWna';
-        const LINE_BOT_ID = '@233svlmc';
-
-        let liffInitialized = false;
-        let userProfile = null;
-
-        // Loading utility functions
-        function showOverlayLoading(text = 'กำลังดำเนินการ...') {
-            document.getElementById('loading-text').textContent = text;
-            document.getElementById('overlay-loading').style.display = 'flex';
-        }
-        
-        function hideOverlayLoading() {
-            document.getElementById('overlay-loading').style.display = 'none';
-        }
-        
-        function showButtonLoading(buttonId) {
-            const button = document.getElementById(buttonId);
-            if (button) {
-                button.classList.add('btn-loading');
-                const spinner = button.querySelector('.btn-spinner');
-                if (spinner) spinner.style.display = 'block';
-            }
-        }
-        
-        function hideButtonLoading(buttonId) {
-            const button = document.getElementById(buttonId);
-            if (button) {
-                button.classList.remove('btn-loading');
-                const spinner = button.querySelector('.btn-spinner');
-                if (spinner) spinner.style.display = 'none';
-            }
-        }
-        
-        function createTableSkeleton(containerId, rows = 3, columns = 6) {
-            const container = document.getElementById(containerId);
-            let skeletonHTML = '';
-            
-            for (let i = 0; i < rows; i++) {
-                skeletonHTML += '<tr class="table-skeleton-row">';
-                for (let j = 0; j < columns; j++) {
-                    const width = Math.random() * 40 + 60; // Random width between 60-100%
-                    skeletonHTML += `<td class="px-6 py-4"><div class="table-skeleton-cell" style="width: ${width}%;"></div></td>`;
-                }
-                skeletonHTML += '</tr>';
-            }
-            
-            container.innerHTML = skeletonHTML;
-        }
-
-        // Test connection to Google Apps Script
-        async function testGASConnection() {
-            try {
-                console.log('Testing GAS connection...');
-                showOverlayLoading('กำลังทดสอบการเชื่อมต่อ...');
-                
-                const response = await fetch(`${GAS_URL}?action=getRecent&test=true`, {
-                    method: 'GET',
-                    mode: 'cors'
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                
-                const data = await response.json();
-                console.log('GAS connection test successful:', data);
-                hideOverlayLoading();
-                return true;
-            } catch (error) {
-                console.error('GAS connection test failed:', error);
-                hideOverlayLoading();
-                
-                Swal.fire({
-                    icon: 'error',
-                    title: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้',
-                    html: `
-                        <p>กรุณาตรวจสอบ:</p>
-                        <ul style="text-align: left; margin: 10px 0;">
-                            <li>การเชื่อมต่ออินเทอร์เน็ต</li>
-                            <li>URL ของ Google Apps Script</li>
-                            <li>การ Deploy Web App</li>
-                        </ul>
-                        <small>Error: ${error.message}</small>
-                    `,
-                    confirmButtonText: 'ตกลง'
-                });
-                return false;
-            }
-        }
-
-        // Retry function for fetch with enhanced error handling
-        async function fetchWithRetry(url, options, retries = 3, delay = 2000) {
-            for (let i = 0; i < retries; i++) {
-                try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 15000);
-                    console.log(`Fetching ${url}, attempt ${i + 1}/${retries}`);
-                    const response = await fetch(url, { ...options, signal: controller.signal });
-                    clearTimeout(timeoutId);
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`HTTP ${response.status}: ${errorText || 'Unknown error'}`);
-                    }
-                    const data = await response.json();
-                    if (data.status === 'error') {
-                        throw new Error(data.message || 'Server returned an error');
-                    }
-                    return data;
-                } catch (error) {
-                    console.error(`Fetch attempt ${i + 1} failed:`, error);
-                    if (i === retries - 1) throw error;
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                }
-            }
-        }
-
-        // LIFF initialization with better error handling
-        async function initializeLiff() {
-            try {
-                console.log('Initializing LIFF with ID:', LIFF_ID);
-                
-                // Initialize LIFF
-                await liff.init({ liffId: LIFF_ID });
-                console.log('LIFF initialized successfully');
-                
-                // Check if user is logged in
-                if (!liff.isLoggedIn()) {
-                    console.log('User not logged in, redirecting to LINE login');
-                    liff.login();
-                    return false;
-                }
-                
-                // Get user profile
-                userProfile = await liff.getProfile();
-                console.log('User profile:', userProfile);
-                document.getElementById('doctor-display-name').textContent = userProfile.displayName;
-                
-                // Check friendship status (optional - comment out if causing issues)
-                try {
-                    const friendship = await liff.getFriendship();
-                    if (!friendship.friendFlag) {
-                        Swal.fire({
-                            icon: 'warning',
-                            title: 'เพิ่มเพื่อน LINE',
-                            text: 'กรุณาเพิ่มเพื่อนกับ LINE Bot เพื่อใช้งานระบบได้เต็มประสิทธิภาพ',
-                            showCancelButton: true,
-                            confirmButtonText: 'เพิ่มเพื่อน',
-                            cancelButtonText: 'ข้ามไป'
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                window.open(`https://line.me/R/ti/p/${LINE_BOT_ID}`, '_blank');
-                            }
-                        });
-                    }
-                } catch (friendshipError) {
-                    console.log('Cannot check friendship status:', friendshipError);
-                    // Continue without friendship check
-                }
-                
-                liffInitialized = true;
-                return true;
-                
-            } catch (error) {
-                console.error('LIFF initialization error:', error);
-                
-                // Show user-friendly error message
-                Swal.fire({
-                    icon: 'error',
-                    title: 'ไม่สามารถเชื่อมต่อ LINE ได้',
-                    text: 'กรุณาเปิดลิงก์นี้ใน LINE Browser หรือตรวจสอบการเชื่อมต่ออินเทอร์เน็ต',
-                    confirmButtonText: 'ตกลง'
-                });
-                
-                // Allow limited functionality without LIFF
-                document.getElementById('doctor-display-name').textContent = 'ผู้ใช้ทั่วไป (ไม่ได้เชื่อมต่อ LINE)';
-                return false;
-            }
-        }
-
-        // Document ready and initialization
-        document.addEventListener('DOMContentLoaded', async function() {
-            try {
-                const liffReady = await initializeLiff();
-                
-                setTimeout(() => {
-                    document.getElementById('preloader').style.display = 'none';
-                }, 1500);
-                
-                initializeApp();
-                
-                // Add event listener for connection test button
-                document.getElementById('test-connection-btn').addEventListener('click', async function() {
-                    const originalText = this.innerHTML;
-                    this.innerHTML = `
-                        <div class="loading-dots">
-                            <div class="loading-dot"></div>
-                            <div class="loading-dot"></div>
-                            <div class="loading-dot"></div>
-                        </div>
-                    `;
-                    this.disabled = true;
-                    
-                    const isConnected = await testGASConnection();
-                    
-                    if (isConnected) {
-                        this.innerHTML = '✅ เชื่อมต่อสำเร็จ';
-                        this.classList.add('bg-green-500');
-                        
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'การเชื่อมต่อปกติ',
-                            text: 'สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้',
-                            timer: 2000,
-                            showConfirmButton: false,
-                            showClass: {
-                                popup: 'animate__animated animate__bounceIn'
-                            }
-                        });
-                        
-                        // Refresh data
-                        fetchRecentData();
-                        fetchAllData();
-                        
-                        // Reset form
-                        form.reset();
-                        
-                    } else {
-                        throw new Error(response.message || 'Failed to save document');
-                    }
-                } catch (error) {
-                    console.error('Save document error:', error);
-                    hideButtonLoading('submit-btn');
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'เกิดข้อผิดพลาด',
-                        text: `ไม่สามารถบันทึกข้อมูลได้: ${error.message}`,
-                        confirmButtonText: 'ตกลง'
-                    });
-                }
-            });
-        }
-
-        async function acknowledgeDocument(data) {
-            // Show loading state
-            const acknowledgeBtn = document.querySelector(`[data-id="${data.id}"]`);
-            if (acknowledgeBtn) {
-                acknowledgeBtn.classList.add('btn-loading');
-                acknowledgeBtn.innerHTML = `
-                    <span class="btn-text" style="opacity: 0;">รับทราบ</span>
-                    <div class="btn-spinner"></div>
-                `;
-                acknowledgeBtn.disabled = true;
-            }
-            
-            try {
-                console.log('Acknowledging document with data:', data);
-                
-                // Try multiple methods to ensure compatibility
-                let response;
-                
-                // Method 1: FormData (preferred)
-                try {
-                    const formData = new FormData();
-                    formData.append('action', 'saveSignature');
-                    formData.append('id', data.id.toString());
-                    
-                    console.log('Attempting FormData request...');
-                    response = await fetchWithRetry(GAS_URL, {
-                        method: 'POST',
-                        body: formData
-                    }, 2, 1000); // Reduce retries and delay for faster fallback
-                    
-                } catch (formDataError) {
-                    console.log('FormData method failed, trying URLSearchParams:', formDataError);
-                    
-                    // Method 2: URLSearchParams (fallback)
-                    const params = new URLSearchParams();
-                    params.append('action', 'saveSignature');
-                    params.append('id', data.id.toString());
-                    
-                    response = await fetchWithRetry(GAS_URL, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                        body: params
-                    }, 2, 1000);
-                }
-                
-                console.log('Acknowledge response:', response);
-                
-                if (response && response.status === 'success') {
-                    // Hide loading and show success
-                    if (acknowledgeBtn) {
-                        acknowledgeBtn.classList.remove('btn-loading');
-                        acknowledgeBtn.innerHTML = '✅ รับทราบแล้ว';
-                        acknowledgeBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
-                        acknowledgeBtn.classList.add('bg-gray-400');
-                        acknowledgeBtn.disabled = true;
-                    }
-                    
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'รับทราบสำเร็จ!',
-                        text: 'สถานะเอกสารถูกอัปเดตเป็น "รับทราบแล้ว"',
-                        confirmButtonText: 'ตกลง',
-                        showClass: {
-                            popup: 'animate__animated animate__bounceIn'
-                        }
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            // Show confetti
-                            confetti({ 
-                                particleCount: 100, 
-                                spread: 70, 
-                                origin: { y: 0.6 } 
-                            });
-                            
-                            // Ask to share acknowledgment to LINE
-                            if (liffInitialized) {
-                                Swal.fire({
-                                    title: 'แชร์การรับทราบไปยัง LINE',
-                                    text: 'ต้องการส่งข้อมูลการรับทราบไปยังกลุ่ม LINE หรือไม่?',
-                                    icon: 'question',
-                                    showCancelButton: true,
-                                    confirmButtonText: 'ส่งไปยัง LINE',
-                                    cancelButtonText: 'ไม่ส่ง',
-                                    confirmButtonColor: '#00B900'
-                                }).then((shareResult) => {
-                                    if (shareResult.isConfirmed) {
-                                        shareAcknowledgmentToLine(data);
-                                    }
-                                });
-                            }
-                        }
-                    });
-                    
-                    // Refresh data
-                    fetchRecentData();
-                    fetchAllData();
-                    
-                } else {
-                    throw new Error(response?.message || 'เกิดข้อผิดพลาดในการรับทราบเอกสาร');
-                }
-                
-            } catch (error) {
-                console.error('Acknowledge document error:', error);
-                
-                // Restore button state
-                if (acknowledgeBtn) {
-                    acknowledgeBtn.classList.remove('btn-loading');
-                    acknowledgeBtn.innerHTML = 'รับทราบ';
-                    acknowledgeBtn.disabled = false;
-                }
-                
-                // Show detailed error information
-                let errorMessage = 'ไม่สามารถอัปเดตสถานะได้';
-                
-                if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-                    errorMessage = 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบ:\n' +
-                                 '• การเชื่อมต่ออินเทอร์เน็ต\n' +
-                                 '• URL ของ Google Apps Script\n' +
-                                 '• การ Deploy Web App ใน Google Apps Script';
-                } else if (error.message) {
-                    errorMessage = error.message;
-                }
-                
-                Swal.fire({
-                    icon: 'error',
-                    title: 'เกิดข้อผิดพลาด',
-                    text: errorMessage,
-                    confirmButtonText: 'ตกลง',
-                    footer: `<small>รายละเอียด: ${error.name || 'Unknown Error'}</small>`
-                });
-            }
-        }
-
-        // Share new document to LINE using sendMessages
-        async function shareNewDocumentToLine(data) {
-            if (!liffInitialized) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'ไม่สามารถแชร์ได้',
-                    text: 'กรุณาเปิดแอปใน LINE Browser',
-                    confirmButtonText: 'ตกลง'
-                });
-                return;
-            }
-            
-            try {
-                showOverlayLoading('กำลังส่งข้อความ...');
-                
-                const textMessage = `📚 แจ้งส่งหนังสือเข้าใหม่\n` +
-                    `━━━━━━━━━━━━━━━━━━━━\n` +
-                    `📄 เลขที่: ${data.docNumber}\n` +
-                    `📋 เรื่อง: ${data.subject}\n` +
-                    `🎯 กิจกรรม: ${data.activity}\n` +
-                    `👨‍🏫 ผู้รับผิดชอบ: ${data.responsible}\n` +
-                    `📅 วันที่: ${data.date}\n` +
-                    `${data.fileLink ? `🔗 ลิงก์ไฟล์: ${data.fileLink}\n` : ''}` +
-                    `━━━━━━━━━━━━━━━━━━━━\n` +
-                    `📱 ดูรายละเอียดเพิ่มเติม: ${window.location.href}`;
-                
-                await liff.sendMessages([
-                    {
-                        type: "text",
-                        text: textMessage
-                    }
-                ]);
-                
-                hideOverlayLoading();
-                
-                Swal.fire({
-                    icon: 'success',
-                    title: 'ส่งข้อมูลสำเร็จ!',
-                    text: 'ข้อมูลหนังสือถูกส่งไปยัง LINE เรียบร้อยแล้ว',
-                    confirmButtonText: 'ตกลง',
-                    timer: 3000,
-                    showClass: {
-                        popup: 'animate__animated animate__bounceIn'
-                    }
-                });
-                
-            } catch (error) {
-                console.error('Share new document error:', error);
-                hideOverlayLoading();
-                
-                Swal.fire({
-                    icon: 'error',
-                    title: 'เกิดข้อผิดพลาด',
-                    text: `ไม่สามารถส่งข้อมูลไปยัง LINE ได้: ${error.message}`,
-                    confirmButtonText: 'ตกลง'
-                });
-            }
-        }
-
-        // Share acknowledgment to LINE using sendMessages
-        async function shareAcknowledgmentToLine(data) {
-            if (!liffInitialized) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'ไม่สามารถแชร์ได้',
-                    text: 'กรุณาเปิดแอปใน LINE Browser',
-                    confirmButtonText: 'ตกลง'
-                });
-                return;
-            }
-            
-            try {
-                showOverlayLoading('กำลังส่งข้อความรับทราบ...');
-                
-                const userName = userProfile ? userProfile.displayName : 'ผู้ใช้';
-                const textMessage = `✅ แจ้งรับทราบหนังสือ\n` +
-                    `━━━━━━━━━━━━━━━━━━━━\n` +
-                    `📄 เลขที่: ${data.docNumber}\n` +
-                    `📋 เรื่อง: ${data.subject}\n` +
-                    `🎯 กิจกรรม: ${data.activity}\n` +
-                    `👨‍🏫 ผู้รับผิดชอบ: ${data.responsible}\n` +
-                    `${data.fileLink ? `🔗 ลิงก์ไฟล์: ${data.fileLink}\n` : ''}` +
-                    `━━━━━━━━━━━━━━━━━━━━\n` +
-                    `✅ สถานะ: รับทราบแล้ว\n` +
-                    `👤 ผู้รับทราบ: ${userName}\n` +
-                    `🕒 เวลา: ${new Date().toLocaleString('th-TH')}\n` +
-                    `━━━━━━━━━━━━━━━━━━━━\n` +
-                    `📱 ดูรายละเอียดเพิ่มเติม: ${window.location.href}`;
-                
-                await liff.sendMessages([
-                    {
-                        type: "text",
-                        text: textMessage
-                    }
-                ]);
-                
-                hideOverlayLoading();
-                
-                Swal.fire({
-                    icon: 'success',
-                    title: 'ส่งข้อมูลสำเร็จ!',
-                    text: 'ข้อมูลการรับทราบถูกส่งไปยัง LINE เรียบร้อยแล้ว',
-                    confirmButtonText: 'ตกลง',
-                    timer: 3000,
-                    showClass: {
-                        popup: 'animate__animated animate__bounceIn'
-                    }
-                });
-                
-            } catch (error) {
-                console.error('Share acknowledgment error:', error);
-                hideOverlayLoading();
-                
-                Swal.fire({
-                    icon: 'error',
-                    title: 'เกิดข้อผิดพลาด',
-                    text: `ไม่สามารถส่งข้อมูลไปยัง LINE ได้: ${error.message}`,
-                    confirmButtonText: 'ตกลง'
-                });
-            }
-        }
-
-        async function showDetailModal(id) {
-            try {
-                showOverlayLoading('กำลังโหลดรายละเอียด...');
-                
-                const data = await fetchWithRetry(`${GAS_URL}?action=getDetail&id=${id}`, { method: 'GET' });
-                const detailContent = document.getElementById('detail-content');
-                const formattedDate = formatDate(data.date);
-                
-                detailContent.innerHTML = `
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="card-hover">
-                            <p class="text-sm font-medium text-gray-500">วันที่</p>
-                            <p class="text-lg">${formattedDate}</p>
-                        </div>
-                        <div class="card-hover">
-                            <p class="text-sm font-medium text-gray-500">เลขที่หนังสือ</p>
-                            <p class="text-lg">${data.docNumber}</p>
-                        </div>
-                    </div>
-                    <div class="card-hover">
-                        <p class="text-sm font-medium text-gray-500">เรื่อง</p>
-                        <p class="text-lg">${data.subject}</p>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="card-hover">
-                            <p class="text-sm font-medium text-gray-500">กิจกรรม</p>
-                            <p class="text-lg">${data.activity}</p>
-                        </div>
-                        <div class="card-hover">
-                            <p class="text-sm font-medium text-gray-500">ผู้รับผิดชอบ</p>
-                            <p class="text-lg">${data.responsible}</p>
-                        </div>
-                    </div>
-                    <div class="card-hover">
-                        <p class="text-sm font-medium text-gray-500">สถานะ</p>
-                        <p class="text-lg">${getStatusBadge(data.status)}</p>
-                    </div>
-                    ${data.fileLink ? `
-                        <div class="card-hover">
-                            <p class="text-sm font-medium text-gray-500">ลิงก์ไฟล์</p>
-                            <a href="${data.fileLink}" target="_blank" class="text-blue-600 hover:text-blue-800 flex items-center mt-2 transition-all hover:translate-x-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd" />
-                                </svg>
-                                ดูไฟล์
-                            </a>
-                        </div>
-                    ` : ''}
-                `;
-                
-                hideOverlayLoading();
-                document.getElementById('detail-modal').style.display = 'flex';
-            } catch (error) {
-                console.error('Show detail error:', error);
-                hideOverlayLoading();
-                Swal.fire({
-                    icon: 'error',
-                    title: 'เกิดข้อผิดพลาด',
-                    text: `ไม่สามารถโหลดรายละเอียดได้: ${error.message}`,
-                    confirmButtonText: 'ตกลง'
-                });
-            }
-        }
-
-        function initModals() {
-            const modal = document.getElementById('detail-modal');
-            const closeBtn = document.getElementById('close-detail-modal');
-            const closeDetailBtn = document.getElementById('close-detail-btn');
-            
-            closeBtn.addEventListener('click', () => {
-                modal.style.display = 'none';
-            });
-            
-            closeDetailBtn.addEventListener('click', () => {
-                modal.style.display = 'none';
-            });
-            
-            window.addEventListener('click', (event) => {
-                if (event.target === modal) {
-                    modal.style.display = 'none';
-                }
-            });
-        }
-
-        function initSearchAndFilter() {
-            const searchInput = document.getElementById('search-input');
-            const filterActivity = document.getElementById('filter-activity');
-            
-            // Debounce function for search
-            let searchTimeout;
-            
-            searchInput.addEventListener('input', () => {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
-                    fetchAllData(filterActivity.value, searchInput.value);
-                }, 300);
-            });
-            
-            filterActivity.addEventListener('change', () => {
-                fetchAllData(filterActivity.value, searchInput.value);
-            });
-        }
-
-        // Utility functions
-        function formatDate(dateString) {
-            if (!dateString) return 'ไม่ระบุ';
-            
-            try {
-                const date = new Date(dateString);
-                return date.toLocaleDateString('th-TH', { 
-                    year: 'numeric', 
-                    month: 'short', 
-                    day: 'numeric' 
-                });
-            } catch (error) {
-                console.error('Date formatting error:', error);
-                return dateString;
-            }
-        }
-
-        function getStatusBadge(status) {
-            if (!status) return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">ไม่ระบุ</span>';
-            
-            const isAcknowledged = status === 'รับทราบแล้ว';
-            const colorClass = isAcknowledged ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
-            
-            return `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${colorClass}">${status}</span>`;
-        }
-
-        // Error handling for unhandled promise rejections
-        window.addEventListener('unhandledrejection', function(event) {
-            console.error('Unhandled promise rejection:', event.reason);
-            event.preventDefault();
-        });
-
-        // Global error handler
-        window.addEventListener('error', function(event) {
-            console.error('Global error:', event.error);
-            // Don't show errors to users for minor issues
-        });
-
-        // Handle online/offline status
-        window.addEventListener('online', function() {
-            console.log('Connection restored');
-            Swal.fire({
-                icon: 'success',
-                title: 'การเชื่อมต่อกลับมาแล้ว',
-                text: 'สามารถใช้งานระบบได้ตามปกติ',
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 3000
-            });
-        });
-
-        window.addEventListener('offline', function() {
-            console.log('Connection lost');
-            Swal.fire({
-                icon: 'warning',
-                title: 'ไม่มีการเชื่อมต่ออินเทอร์เน็ต',
-                text: 'กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตของคุณ',
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 3000
-            });
-        });
-
-        // Page visibility handling
-        document.addEventListener('visibilitychange', function() {
-            if (!document.hidden) {
-                console.log('Page became visible');
-                // Optionally refresh data when page becomes visible
-            }
-        });
-
-        // Prevent console errors from breaking the app
-        try {
-            // Initialize everything
-            console.log('Application initialized successfully');
-        } catch (error) {
-            console.error('Application initialization error:', error);
-        }
-    </script>
-</body>
-</html>AllData();
-                        
-                        // Reset button after 3 seconds
-                        setTimeout(() => {
-                            this.innerHTML = originalText;
-                            this.classList.remove('bg-green-500');
-                            this.disabled = false;
-                        }, 3000);
-                    } else {
-                        this.innerHTML = '❌ การเชื่อมต่อล้มเหลว';
-                        this.classList.add('bg-red-500');
-                        
-                        // Reset button after 3 seconds
-                        setTimeout(() => {
-                            this.innerHTML = originalText;
-                            this.classList.remove('bg-red-500');
-                            this.disabled = false;
-                        }, 3000);
-                    }
-                });
-                
-            } catch (error) {
-                console.error('App initialization error:', error);
-                document.getElementById('preloader').style.display = 'none';
-                initializeApp(); // Continue with limited functionality
-            }
-        });
-
-        function initializeApp() {
-            // Test GAS connection first
-            testGASConnection().then(connectionOk => {
-                if (connectionOk) {
-                    initTabs();
-                    fetchRecentData();
-                    fetchAllData();
-                    initCharts();
-                    initFormSubmission();
-                    initModals();
-                    initSearchAndFilter();
-                } else {
-                    // Still initialize UI but with limited functionality
-                    initTabs();
-                    initModals();
-                    initSearchAndFilter();
-                    
-                    // Show placeholder data with enhanced styling
-                    document.getElementById('recent-data').innerHTML = `
-                        <tr><td colspan="6" class="px-6 py-8 text-center">
-                            <div class="flex flex-col items-center">
-                                <svg class="h-12 w-12 text-red-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.314 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                                </svg>
-                                <p class="text-sm text-red-500">ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้</p>
-                                <p class="text-xs text-gray-400 mt-1">กรุณาตรวจสอบการเชื่อมต่อ</p>
-                            </div>
-                        </td></tr>
-                    `;
-                    document.getElementById('all-data').innerHTML = `
-                        <tr><td colspan="7" class="px-6 py-8 text-center">
-                            <div class="flex flex-col items-center">
-                                <svg class="h-12 w-12 text-red-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.314 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                                </svg>
-                                <p class="text-sm text-red-500">ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้</p>
-                                <p class="text-xs text-gray-400 mt-1">กรุณาตรวจสอบการเชื่อมต่อ</p>
-                            </div>
-                        </td></tr>
-                    `;
-                }
-            });
-        }
-
-        function initTabs() {
-            const tabs = ['form', 'data', 'stats'];
-            const tabButtons = tabs.map(tab => document.getElementById(`tab-${tab}`));
-            const sections = tabs.map(tab => document.getElementById(`section-${tab}`));
-            
-            tabButtons.forEach((button, index) => {
-                button.addEventListener('click', () => {
-                    tabButtons.forEach(btn => {
-                        btn.classList.remove('tab-active');
-                        btn.classList.add('text-gray-600');
-                    });
-                    button.classList.add('tab-active');
-                    button.classList.remove('text-gray-600');
-                    
-                    sections.forEach(section => section.classList.add('hidden'));
-                    sections[index].classList.remove('hidden');
-                });
-            });
-            
-            // View all button functionality
-            document.getElementById('view-all-btn').addEventListener('click', () => {
-                tabButtons[0].classList.remove('tab-active');
-                tabButtons[0].classList.add('text-gray-600');
-                tabButtons[1].classList.add('tab-active');
-                tabButtons[1].classList.remove('text-gray-600');
-                
-                sections[0].classList.add('hidden');
-                sections[1].classList.remove('hidden');
-            });
-        }
-
-        async function fetchRecentData() {
-            try {
-                createTableSkeleton('recent-data', 3, 6);
-                const data = await fetchWithRetry(`${GAS_URL}?action=getRecent`, { method: 'GET' });
-                renderTableData('recent-data', Array.isArray(data) ? data : [], false);
-            } catch (error) {
-                console.error('Fetch recent data error:', error);
-                document.getElementById('recent-data').innerHTML = `
-                    <tr><td colspan="6" class="px-6 py-4 text-center text-sm text-red-500">
-                        เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error.message}
-                    </td></tr>
-                `;
-            }
-        }
-
-        async function fetchAllData(activityFilter = '', searchTerm = '') {
-            try {
-                createTableSkeleton('all-data', 5, 7);
-                const params = new URLSearchParams({ action: 'getAll', activity: activityFilter, search: searchTerm });
-                const data = await fetchWithRetry(`${GAS_URL}?${params}`, { method: 'GET' });
-                renderTableData('all-data', Array.isArray(data) ? data : [], true);
-            } catch (error) {
-                console.error('Fetch all data error:', error);
-                document.getElementById('all-data').innerHTML = `
-                    <tr><td colspan="7" class="px-6 py-4 text-center text-sm text-red-500">
-                        เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error.message}
-                    </td></tr>
-                `;
-            }
-        }
-
-        async function fetchStats() {
-            try {
-                const data = await fetchWithRetry(`${GAS_URL}?action=getStats`, { method: 'GET' });
-                return data;
-            } catch (error) {
-                console.error('Fetch stats error:', error);
-                return { activityStats: {}, responsibleStats: {} };
-            }
-        }
-
-        function renderTableData(containerId, data, includeActions = false) {
-            const container = document.getElementById(containerId);
-            container.innerHTML = '';
-            
-            if (!Array.isArray(data) || data.length === 0) {
-                container.innerHTML = `
-                    <tr><td colspan="${includeActions ? 7 : 6}" class="px-6 py-4 text-center text-sm text-gray-500">
-                        ไม่พบข้อมูล
-                    </td></tr>
-                `;
-                return;
-            }
-            
-            data.forEach(item => {
-                const row = document.createElement('tr');
-                row.className = 'hover:bg-gray-50';
-                row.dataset.id = item.id;
-                
-                const formattedDate = formatDate(item.date);
-                
-                let html = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formattedDate}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.docNumber}</td>
-                    <td class="px-6 py-4 text-sm text-gray-900">${item.subject}</td>
-                    <td class="px-6 py-4 text-sm text-gray-900">${item.activity}</td>
-                    <td class="px-6 py-4 text-sm text-gray-900">${item.responsible}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm">${getStatusBadge(item.status)}</td>
-                `;
-                
-                if (includeActions) {
-                    html += `
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
-                            <button class="view-details text-blue-600 hover:text-blue-800 mr-3">รายละเอียด</button>
-                            ${item.status === 'รอการรับทราบ' ? 
-                                `<button class="acknowledge-btn bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700" 
-                                    data-id="${item.id}" 
-                                    data-doc-number="${item.docNumber}" 
-                                    data-subject="${item.subject}" 
-                                    data-activity="${item.activity}" 
-                                    data-responsible="${item.responsible}" 
-                                    data-file-link="${item.fileLink || ''}">
-                                    รับทราบ
-                                </button>` : ''
-                            }
-                        </td>
-                    `;
-                }
-                
-                row.innerHTML = html;
-                container.appendChild(row);
-            });
-            
-            // Add event listeners
-            container.querySelectorAll('.view-details').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    showDetailModal(e.target.closest('tr').dataset.id);
-                });
-            });
-            
-            container.querySelectorAll('.acknowledge-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const data = {
-                        id: btn.dataset.id,
-                        docNumber: btn.dataset.docNumber,
-                        subject: btn.dataset.subject,
-                        activity: btn.dataset.activity,
-                        responsible: btn.dataset.responsible,
-                        fileLink: btn.dataset.fileLink
-                    };
-                    acknowledgeDocument(data);
-                });
-            });
-        }
-
-        async function initCharts() {
-            try {
-                const stats = await fetchStats();
-                
-                // Activity Chart
-                const activityCtx = document.getElementById('activity-chart').getContext('2d');
-                new Chart(activityCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: Object.keys(stats.activityStats || {}),
-                        datasets: [{
-                            label: 'จำนวนกิจกรรม',
-                            data: Object.values(stats.activityStats || {}),
-                            backgroundColor: 'rgba(56, 182, 255, 0.7)',
-                            borderColor: 'rgba(56, 182, 255, 1)',
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: { 
-                            y: { 
-                                beginAtZero: true, 
-                                ticks: { precision: 0 } 
-                            } 
-                        },
-                        plugins: { 
-                            legend: { display: false }, 
-                            title: { 
-                                display: true, 
-                                text: 'จำนวนกิจกรรมแยกตามประเภท', 
-                                font: { size: 16 } 
-                            } 
-                        }
-                    }
-                });
-                
-                // Responsible Chart
-                const responsibleCtx = document.getElementById('responsible-chart').getContext('2d');
-                new Chart(responsibleCtx, {
-                    type: 'pie',
-                    data: {
-                        labels: Object.keys(stats.responsibleStats || {}),
-                        datasets: [{
-                            data: Object.values(stats.responsibleStats || {}),
-                            backgroundColor: [
-                                'rgba(255, 87, 87, 0.7)', 
-                                'rgba(82, 113, 255, 0.7)', 
-                                'rgba(56, 182, 255, 0.7)', 
-                                'rgba(255, 250, 221, 0.7)', 
-                                'rgba(255, 159, 67, 0.7)', 
-                                'rgba(46, 213, 115, 0.7)', 
-                                'rgba(155, 89, 182, 0.7)',
-                                'rgba(255, 99, 132, 0.7)',
-                                'rgba(54, 162, 235, 0.7)',
-                                'rgba(255, 205, 86, 0.7)'
-                            ],
-                            borderColor: [
-                                'rgba(255, 87, 87, 1)', 
-                                'rgba(82, 113, 255, 1)', 
-                                'rgba(56, 182, 255, 1)', 
-                                'rgba(255, 250, 221, 1)', 
-                                'rgba(255, 159, 67, 1)', 
-                                'rgba(46, 213, 115, 1)', 
-                                'rgba(155, 89, 182, 1)',
-                                'rgba(255, 99, 132, 1)',
-                                'rgba(54, 162, 235, 1)',
-                                'rgba(255, 205, 86, 1)'
-                            ],
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { 
-                            legend: { 
-                                position: 'right', 
-                                labels: { 
-                                    boxWidth: 15, 
-                                    font: { size: 11 } 
-                                } 
-                            }, 
-                            title: { 
-                                display: true, 
-                                text: 'จำนวนกิจกรรมแยกตามผู้รับผิดชอบ', 
-                                font: { size: 16 } 
-                            } 
-                        }
-                    }
-                });
-            } catch (error) {
-                console.error('Charts initialization error:', error);
-            }
-        }
-
-        function initFormSubmission() {
-            const form = document.getElementById('document-form');
-            
-            form.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                
-                // Show loading state
-                showButtonLoading('submit-btn');
-                
-                try {
-                    const formData = new FormData();
-                    formData.append('action', 'saveDocument');
-                    formData.append('date', new Date().toISOString().split('T')[0]);
-                    formData.append('docNumber', document.getElementById('doc-number').value);
-                    formData.append('subject', document.getElementById('doc-subject').value);
-                    formData.append('activity', document.getElementById('activity').value);
-                    formData.append('responsible', document.getElementById('responsible').value);
-                    formData.append('fileLink', document.getElementById('file-link').value || '');
-                    
-                    const response = await fetchWithRetry(GAS_URL, {
-                        method: 'POST',
-                        body: formData
-                    });
-                    
-                    if (response.status === 'success') {
-                        // Create document data for sharing
-                        const documentData = {
-                            id: response.id,
-                            docNumber: document.getElementById('doc-number').value,
-                            subject: document.getElementById('doc-subject').value,
-                            activity: document.getElementById('activity').value,
-                            responsible: document.getElementById('responsible').value,
-                            fileLink: document.getElementById('file-link').value || '',
-                            date: new Date().toLocaleDateString('th-TH')
-                        };
-                        
-                        // Hide loading and show success
-                        hideButtonLoading('submit-btn');
-                        
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'บันทึกข้อมูลสำเร็จ!',
-                            text: 'ข้อมูลหนังสือถูกบันทึกเรียบร้อยแล้ว',
-                            confirmButtonText: 'ตกลง',
-                            showClass: {
-                                popup: 'animate__animated animate__bounceIn'
-                            }
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                // Show confetti
-                                confetti({ 
-                                    particleCount: 100, 
-                                    spread: 70, 
-                                    origin: { y: 0.6 } 
-                                });
-                                
-                                // Ask to share to LINE
-                                if (liffInitialized) {
-                                    Swal.fire({
-                                        title: 'แชร์ข้อมูลไปยัง LINE',
-                                        text: 'ต้องการส่งข้อมูลหนังสือนี้ไปยังกลุ่ม LINE หรือไม่?',
-                                        icon: 'question',
-                                        showCancelButton: true,
-                                        confirmButtonText: 'ส่งไปยัง LINE',
-                                        cancelButtonText: 'ไม่ส่ง',
-                                        confirmButtonColor: '#00B900'
-                                    }).then((shareResult) => {
-                                        if (shareResult.isConfirmed) {
-                                            shareNewDocumentToLine(documentData);
-                                        }
-                                    });
-                                }
-                            }
-                        });
-                        
-                        // Refresh data
-                        fetchRecentData();
-                        fetch<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="th">
 <head>
     <meta charset="UTF-8">
@@ -1602,4 +476,1069 @@
         <div id="section-stats" class="tab-section hidden">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="bg-white rounded-xl shadow-lg p-6">
-                    <h2 class="text-xl font-semib
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800">สถิติตามกิจกรรม</h2>
+                    <div class="h-80">
+                        <canvas id="activity-chart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800">สถิติตามผู้รับผิดชอบ</h2>
+                    <div class="h-80">
+                        <canvas id="responsible-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal for Document Details -->
+    <div id="detail-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">รายละเอียดหนังสือ</h3>
+                    <button id="close-detail-modal" class="text-gray-500 hover:text-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <div id="detail-content" class="space-y-4">
+                    <!-- Details will be loaded here -->
+                </div>
+                
+                <div class="mt-6 flex justify-end">
+                    <button id="close-detail-btn" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-all">
+                        ปิด
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzHrM4TXg-Ot2P1da3Jq6J5b6W7Ukn2jLr_0Mql8XvfY-XXm9G1_H2HUFIlTrqkSzgc/exec';
+        const LIFF_ID = '2005780370-27LZkWna';
+        const LINE_BOT_ID = '@233svlmc';
+
+        let liffInitialized = false;
+        let userProfile = null;
+
+        // Loading utility functions
+        function showOverlayLoading(text = 'กำลังดำเนินการ...') {
+            document.getElementById('loading-text').textContent = text;
+            document.getElementById('overlay-loading').style.display = 'flex';
+        }
+        
+        function hideOverlayLoading() {
+            document.getElementById('overlay-loading').style.display = 'none';
+        }
+        
+        function showButtonLoading(buttonId) {
+            const button = document.getElementById(buttonId);
+            if (button) {
+                button.classList.add('btn-loading');
+                const spinner = button.querySelector('.btn-spinner');
+                if (spinner) spinner.style.display = 'block';
+            }
+        }
+        
+        function hideButtonLoading(buttonId) {
+            const button = document.getElementById(buttonId);
+            if (button) {
+                button.classList.remove('btn-loading');
+                const spinner = button.querySelector('.btn-spinner');
+                if (spinner) spinner.style.display = 'none';
+            }
+        }
+        
+        function createTableSkeleton(containerId, rows = 3, columns = 6) {
+            const container = document.getElementById(containerId);
+            let skeletonHTML = '';
+            
+            for (let i = 0; i < rows; i++) {
+                skeletonHTML += '<tr class="table-skeleton-row">';
+                for (let j = 0; j < columns; j++) {
+                    const width = Math.random() * 40 + 60;
+                    skeletonHTML += `<td class="px-6 py-4"><div class="table-skeleton-cell" style="width: ${width}%;"></div></td>`;
+                }
+                skeletonHTML += '</tr>';
+            }
+            
+            container.innerHTML = skeletonHTML;
+        }
+
+        // Test connection to Google Apps Script
+        async function testGASConnection() {
+            try {
+                console.log('Testing GAS connection...');
+                showOverlayLoading('กำลังทดสอบการเชื่อมต่อ...');
+                
+                const response = await fetch(`${GAS_URL}?action=getRecent&test=true`, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('GAS connection test successful:', data);
+                hideOverlayLoading();
+                return true;
+            } catch (error) {
+                console.error('GAS connection test failed:', error);
+                hideOverlayLoading();
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้',
+                    html: `
+                        <p>กรุณาตรวจสอบ:</p>
+                        <ul style="text-align: left; margin: 10px 0;">
+                            <li>การเชื่อมต่ออินเทอร์เน็ต</li>
+                            <li>URL ของ Google Apps Script</li>
+                            <li>การ Deploy Web App</li>
+                        </ul>
+                        <small>Error: ${error.message}</small>
+                    `,
+                    confirmButtonText: 'ตกลง'
+                });
+                return false;
+            }
+        }
+
+        // Retry function for fetch with enhanced error handling
+        async function fetchWithRetry(url, options, retries = 3, delay = 2000) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 15000);
+                    console.log(`Fetching ${url}, attempt ${i + 1}/${retries}`);
+                    const response = await fetch(url, { ...options, signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`HTTP ${response.status}: ${errorText || 'Unknown error'}`);
+                    }
+                    const data = await response.json();
+                    if (data.status === 'error') {
+                        throw new Error(data.message || 'Server returned an error');
+                    }
+                    return data;
+                } catch (error) {
+                    console.error(`Fetch attempt ${i + 1} failed:`, error);
+                    if (i === retries - 1) throw error;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+
+        // LIFF initialization with better error handling
+        async function initializeLiff() {
+            try {
+                console.log('Initializing LIFF with ID:', LIFF_ID);
+                
+                await liff.init({ liffId: LIFF_ID });
+                console.log('LIFF initialized successfully');
+                
+                if (!liff.isLoggedIn()) {
+                    console.log('User not logged in, redirecting to LINE login');
+                    liff.login();
+                    return false;
+                }
+                
+                userProfile = await liff.getProfile();
+                console.log('User profile:', userProfile);
+                document.getElementById('doctor-display-name').textContent = userProfile.displayName;
+                
+                try {
+                    const friendship = await liff.getFriendship();
+                    if (!friendship.friendFlag) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'เพิ่มเพื่อน LINE',
+                            text: 'กรุณาเพิ่มเพื่อนกับ LINE Bot เพื่อใช้งานระบบได้เต็มประสิทธิภาพ',
+                            showCancelButton: true,
+                            confirmButtonText: 'เพิ่มเพื่อน',
+                            cancelButtonText: 'ข้ามไป'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                window.open(`https://line.me/R/ti/p/${LINE_BOT_ID}`, '_blank');
+                            }
+                        });
+                    }
+                } catch (friendshipError) {
+                    console.log('Cannot check friendship status:', friendshipError);
+                }
+                
+                liffInitialized = true;
+                return true;
+                
+            } catch (error) {
+                console.error('LIFF initialization error:', error);
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'ไม่สามารถเชื่อมต่อ LINE ได้',
+                    text: 'กรุณาเปิดลิงก์นี้ใน LINE Browser หรือตรวจสอบการเชื่อมต่ออินเทอร์เน็ต',
+                    confirmButtonText: 'ตกลง'
+                });
+                
+                document.getElementById('doctor-display-name').textContent = 'ผู้ใช้ทั่วไป (ไม่ได้เชื่อมต่อ LINE)';
+                return false;
+            }
+        }
+
+        // Document ready and initialization
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                const liffReady = await initializeLiff();
+                
+                setTimeout(() => {
+                    document.getElementById('preloader').style.display = 'none';
+                }, 1500);
+                
+                initializeApp();
+                
+                document.getElementById('test-connection-btn').addEventListener('click', async function() {
+                    const originalText = this.innerHTML;
+                    this.innerHTML = `
+                        <div class="loading-dots">
+                            <div class="loading-dot"></div>
+                            <div class="loading-dot"></div>
+                            <div class="loading-dot"></div>
+                        </div>
+                    `;
+                    this.disabled = true;
+                    
+                    const isConnected = await testGASConnection();
+                    
+                    if (isConnected) {
+                        this.innerHTML = '✅ เชื่อมต่อสำเร็จ';
+                        this.classList.add('bg-green-500');
+                        
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'การเชื่อมต่อปกติ',
+                            text: 'สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                        
+                        fetchRecentData();
+                        fetchAllData();
+                        
+                        setTimeout(() => {
+                            this.innerHTML = originalText;
+                            this.classList.remove('bg-green-500');
+                            this.disabled = false;
+                        }, 3000);
+                    } else {
+                        this.innerHTML = '❌ การเชื่อมต่อล้มเหลว';
+                        this.classList.add('bg-red-500');
+                        
+                        setTimeout(() => {
+                            this.innerHTML = originalText;
+                            this.classList.remove('bg-red-500');
+                            this.disabled = false;
+                        }, 3000);
+                    }
+                });
+                
+            } catch (error) {
+                console.error('App initialization error:', error);
+                document.getElementById('preloader').style.display = 'none';
+                initializeApp();
+            }
+        });
+
+        function initializeApp() {
+            testGASConnection().then(connectionOk => {
+                if (connectionOk) {
+                    initTabs();
+                    fetchRecentData();
+                    fetchAllData();
+                    initCharts();
+                    initFormSubmission();
+                    initModals();
+                    initSearchAndFilter();
+                } else {
+                    initTabs();
+                    initModals();
+                    initSearchAndFilter();
+                    
+                    document.getElementById('recent-data').innerHTML = `
+                        <tr><td colspan="6" class="px-6 py-8 text-center">
+                            <div class="flex flex-col items-center">
+                                <svg class="h-12 w-12 text-red-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.314 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                </svg>
+                                <p class="text-sm text-red-500">ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้</p>
+                                <p class="text-xs text-gray-400 mt-1">กรุณาตรวจสอบการเชื่อมต่อ</p>
+                            </div>
+                        </td></tr>
+                    `;
+                    document.getElementById('all-data').innerHTML = `
+                        <tr><td colspan="7" class="px-6 py-8 text-center">
+                            <div class="flex flex-col items-center">
+                                <svg class="h-12 w-12 text-red-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.314 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                </svg>
+                                <p class="text-sm text-red-500">ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้</p>
+                                <p class="text-xs text-gray-400 mt-1">กรุณาตรวจสอบการเชื่อมต่อ</p>
+                            </div>
+                        </td></tr>
+                    `;
+                }
+            });
+        }
+
+        function initTabs() {
+            const tabs = ['form', 'data', 'stats'];
+            const tabButtons = tabs.map(tab => document.getElementById(`tab-${tab}`));
+            const sections = tabs.map(tab => document.getElementById(`section-${tab}`));
+            
+            tabButtons.forEach((button, index) => {
+                button.addEventListener('click', () => {
+                    tabButtons.forEach(btn => {
+                        btn.classList.remove('tab-active');
+                        btn.classList.add('text-gray-600');
+                    });
+                    button.classList.add('tab-active');
+                    button.classList.remove('text-gray-600');
+                    
+                    sections.forEach(section => section.classList.add('hidden'));
+                    sections[index].classList.remove('hidden');
+                });
+            });
+            
+            document.getElementById('view-all-btn').addEventListener('click', () => {
+                tabButtons[0].classList.remove('tab-active');
+                tabButtons[0].classList.add('text-gray-600');
+                tabButtons[1].classList.add('tab-active');
+                tabButtons[1].classList.remove('text-gray-600');
+                
+                sections[0].classList.add('hidden');
+                sections[1].classList.remove('hidden');
+            });
+        }
+
+        async function fetchRecentData() {
+            try {
+                createTableSkeleton('recent-data', 3, 6);
+                const data = await fetchWithRetry(`${GAS_URL}?action=getRecent`, { method: 'GET' });
+                renderTableData('recent-data', Array.isArray(data) ? data : [], false);
+            } catch (error) {
+                console.error('Fetch recent data error:', error);
+                document.getElementById('recent-data').innerHTML = `
+                    <tr><td colspan="6" class="px-6 py-4 text-center text-sm text-red-500">
+                        เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error.message}
+                    </td></tr>
+                `;
+            }
+        }
+
+        async function fetchAllData(activityFilter = '', searchTerm = '') {
+            try {
+                createTableSkeleton('all-data', 5, 7);
+                const params = new URLSearchParams({ action: 'getAll', activity: activityFilter, search: searchTerm });
+                const data = await fetchWithRetry(`${GAS_URL}?${params}`, { method: 'GET' });
+                renderTableData('all-data', Array.isArray(data) ? data : [], true);
+            } catch (error) {
+                console.error('Fetch all data error:', error);
+                document.getElementById('all-data').innerHTML = `
+                    <tr><td colspan="7" class="px-6 py-4 text-center text-sm text-red-500">
+                        เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error.message}
+                    </td></tr>
+                `;
+            }
+        }
+
+        async function fetchStats() {
+            try {
+                const data = await fetchWithRetry(`${GAS_URL}?action=getStats`, { method: 'GET' });
+                return data;
+            } catch (error) {
+                console.error('Fetch stats error:', error);
+                return { activityStats: {}, responsibleStats: {} };
+            }
+        }
+
+        function renderTableData(containerId, data, includeActions = false) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            if (!Array.isArray(data) || data.length === 0) {
+                container.innerHTML = `
+                    <tr><td colspan="${includeActions ? 7 : 6}" class="px-6 py-4 text-center text-sm text-gray-500">
+                        ไม่พบข้อมูล
+                    </td></tr>
+                `;
+                return;
+            }
+            
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                row.dataset.id = item.id;
+                
+                const formattedDate = formatDate(item.date);
+                
+                let html = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formattedDate}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.docNumber}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${item.subject}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${item.activity}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${item.responsible}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${getStatusBadge(item.status)}</td>
+                `;
+                
+                if (includeActions) {
+                    html += `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
+                            <button class="view-details text-blue-600 hover:text-blue-800 mr-3">รายละเอียด</button>
+                            ${item.status === 'รอการรับทราบ' ? 
+                                `<button class="acknowledge-btn bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700" 
+                                    data-id="${item.id}" 
+                                    data-doc-number="${item.docNumber}" 
+                                    data-subject="${item.subject}" 
+                                    data-activity="${item.activity}" 
+                                    data-responsible="${item.responsible}" 
+                                    data-file-link="${item.fileLink || ''}">
+                                    รับทราบ
+                                </button>` : ''
+                            }
+                        </td>
+                    `;
+                }
+                
+                row.innerHTML = html;
+                container.appendChild(row);
+            });
+            
+            container.querySelectorAll('.view-details').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    showDetailModal(e.target.closest('tr').dataset.id);
+                });
+            });
+            
+            container.querySelectorAll('.acknowledge-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const data = {
+                        id: btn.dataset.id,
+                        docNumber: btn.dataset.docNumber,
+                        subject: btn.dataset.subject,
+                        activity: btn.dataset.activity,
+                        responsible: btn.dataset.responsible,
+                        fileLink: btn.dataset.fileLink
+                    };
+                    acknowledgeDocument(data);
+                });
+            });
+        }
+
+        async function initCharts() {
+            try {
+                const stats = await fetchStats();
+                
+                const activityCtx = document.getElementById('activity-chart').getContext('2d');
+                new Chart(activityCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(stats.activityStats || {}),
+                        datasets: [{
+                            label: 'จำนวนกิจกรรม',
+                            data: Object.values(stats.activityStats || {}),
+                            backgroundColor: 'rgba(56, 182, 255, 0.7)',
+                            borderColor: 'rgba(56, 182, 255, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { 
+                            y: { 
+                                beginAtZero: true, 
+                                ticks: { precision: 0 } 
+                            } 
+                        },
+                        plugins: { 
+                            legend: { display: false }, 
+                            title: { 
+                                display: true, 
+                                text: 'จำนวนกิจกรรมแยกตามประเภท', 
+                                font: { size: 16 } 
+                            } 
+                        }
+                    }
+                });
+                
+                const responsibleCtx = document.getElementById('responsible-chart').getContext('2d');
+                new Chart(responsibleCtx, {
+                    type: 'pie',
+                    data: {
+                        labels: Object.keys(stats.responsibleStats || {}),
+                        datasets: [{
+                            data: Object.values(stats.responsibleStats || {}),
+                            backgroundColor: [
+                                'rgba(255, 87, 87, 0.7)', 
+                                'rgba(82, 113, 255, 0.7)', 
+                                'rgba(56, 182, 255, 0.7)', 
+                                'rgba(255, 250, 221, 0.7)', 
+                                'rgba(255, 159, 67, 0.7)', 
+                                'rgba(46, 213, 115, 0.7)', 
+                                'rgba(155, 89, 182, 0.7)',
+                                'rgba(255, 99, 132, 0.7)',
+                                'rgba(54, 162, 235, 0.7)',
+                                'rgba(255, 205, 86, 0.7)'
+                            ],
+                            borderColor: [
+                                'rgba(255, 87, 87, 1)', 
+                                'rgba(82, 113, 255, 1)', 
+                                'rgba(56, 182, 255, 1)', 
+                                'rgba(255, 250, 221, 1)', 
+                                'rgba(255, 159, 67, 1)', 
+                                'rgba(46, 213, 115, 1)', 
+                                'rgba(155, 89, 182, 1)',
+                                'rgba(255, 99, 132, 1)',
+                                'rgba(54, 162, 235, 1)',
+                                'rgba(255, 205, 86, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { 
+                            legend: { 
+                                position: 'right', 
+                                labels: { 
+                                    boxWidth: 15, 
+                                    font: { size: 11 } 
+                                } 
+                            }, 
+                            title: { 
+                                display: true, 
+                                text: 'จำนวนกิจกรรมแยกตามผู้รับผิดชอบ', 
+                                font: { size: 16 } 
+                            } 
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Charts initialization error:', error);
+            }
+        }
+
+        function initFormSubmission() {
+            const form = document.getElementById('document-form');
+            
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                showButtonLoading('submit-btn');
+                
+                try {
+                    const formData = new FormData();
+                    formData.append('action', 'saveDocument');
+                    formData.append('date', new Date().toISOString().split('T')[0]);
+                    formData.append('docNumber', document.getElementById('doc-number').value);
+                    formData.append('subject', document.getElementById('doc-subject').value);
+                    formData.append('activity', document.getElementById('activity').value);
+                    formData.append('responsible', document.getElementById('responsible').value);
+                    formData.append('fileLink', document.getElementById('file-link').value || '');
+                    
+                    const response = await fetchWithRetry(GAS_URL, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (response.status === 'success') {
+                        const documentData = {
+                            id: response.id,
+                            docNumber: document.getElementById('doc-number').value,
+                            subject: document.getElementById('doc-subject').value,
+                            activity: document.getElementById('activity').value,
+                            responsible: document.getElementById('responsible').value,
+                            fileLink: document.getElementById('file-link').value || '',
+                            date: new Date().toLocaleDateString('th-TH')
+                        };
+                        
+                        hideButtonLoading('submit-btn');
+                        
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'บันทึกข้อมูลสำเร็จ!',
+                            text: 'ข้อมูลหนังสือถูกบันทึกเรียบร้อยแล้ว',
+                            confirmButtonText: 'ตกลง'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                confetti({ 
+                                    particleCount: 100, 
+                                    spread: 70, 
+                                    origin: { y: 0.6 } 
+                                });
+                                
+                                if (liffInitialized) {
+                                    Swal.fire({
+                                        title: 'แชร์ข้อมูลไปยัง LINE',
+                                        text: 'ต้องการส่งข้อมูลหนังสือนี้ไปยังกลุ่ม LINE หรือไม่?',
+                                        icon: 'question',
+                                        showCancelButton: true,
+                                        confirmButtonText: 'ส่งไปยัง LINE',
+                                        cancelButtonText: 'ไม่ส่ง',
+                                        confirmButtonColor: '#00B900'
+                                    }).then((shareResult) => {
+                                        if (shareResult.isConfirmed) {
+                                            shareNewDocumentToLine(documentData);
+                                        }
+                                    });
+                                }
+                            }
+                        });
+                        
+                        fetchRecentData();
+                        fetchAllData();
+                        form.reset();
+                        
+                    } else {
+                        throw new Error(response.message || 'Failed to save document');
+                    }
+                } catch (error) {
+                    console.error('Save document error:', error);
+                    hideButtonLoading('submit-btn');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'เกิดข้อผิดพลาด',
+                        text: `ไม่สามารถบันทึกข้อมูลได้: ${error.message}`,
+                        confirmButtonText: 'ตกลง'
+                    });
+                }
+            });
+        }
+
+        async function acknowledgeDocument(data) {
+            const acknowledgeBtn = document.querySelector(`[data-id="${data.id}"]`);
+            if (acknowledgeBtn) {
+                acknowledgeBtn.classList.add('btn-loading');
+                acknowledgeBtn.innerHTML = `
+                    <span class="btn-text" style="opacity: 0;">รับทราบ</span>
+                    <div class="btn-spinner"></div>
+                `;
+                acknowledgeBtn.disabled = true;
+            }
+            
+            try {
+                console.log('Acknowledging document with data:', data);
+                
+                let response;
+                
+                try {
+                    const formData = new FormData();
+                    formData.append('action', 'saveSignature');
+                    formData.append('id', data.id.toString());
+                    
+                    console.log('Attempting FormData request...');
+                    response = await fetchWithRetry(GAS_URL, {
+                        method: 'POST',
+                        body: formData
+                    }, 2, 1000);
+                    
+                } catch (formDataError) {
+                    console.log('FormData method failed, trying URLSearchParams:', formDataError);
+                    
+                    const params = new URLSearchParams();
+                    params.append('action', 'saveSignature');
+                    params.append('id', data.id.toString());
+                    
+                    response = await fetchWithRetry(GAS_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: params
+                    }, 2, 1000);
+                }
+                
+                console.log('Acknowledge response:', response);
+                
+                if (response && response.status === 'success') {
+                    if (acknowledgeBtn) {
+                        acknowledgeBtn.classList.remove('btn-loading');
+                        acknowledgeBtn.innerHTML = '✅ รับทราบแล้ว';
+                        acknowledgeBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                        acknowledgeBtn.classList.add('bg-gray-400');
+                        acknowledgeBtn.disabled = true;
+                    }
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'รับทราบสำเร็จ!',
+                        text: 'สถานะเอกสารถูกอัปเดตเป็น "รับทราบแล้ว"',
+                        confirmButtonText: 'ตกลง'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            confetti({ 
+                                particleCount: 100, 
+                                spread: 70, 
+                                origin: { y: 0.6 } 
+                            });
+                            
+                            if (liffInitialized) {
+                                Swal.fire({
+                                    title: 'แชร์การรับทราบไปยัง LINE',
+                                    text: 'ต้องการส่งข้อมูลการรับทราบไปยังกลุ่ม LINE หรือไม่?',
+                                    icon: 'question',
+                                    showCancelButton: true,
+                                    confirmButtonText: 'ส่งไปยัง LINE',
+                                    cancelButtonText: 'ไม่ส่ง',
+                                    confirmButtonColor: '#00B900'
+                                }).then((shareResult) => {
+                                    if (shareResult.isConfirmed) {
+                                        shareAcknowledgmentToLine(data);
+                                    }
+                                });
+                            }
+                        }
+                    });
+                    
+                    fetchRecentData();
+                    fetchAllData();
+                    
+                } else {
+                    throw new Error(response?.message || 'เกิดข้อผิดพลาดในการรับทราบเอกสาร');
+                }
+                
+            } catch (error) {
+                console.error('Acknowledge document error:', error);
+                
+                if (acknowledgeBtn) {
+                    acknowledgeBtn.classList.remove('btn-loading');
+                    acknowledgeBtn.innerHTML = 'รับทราบ';
+                    acknowledgeBtn.disabled = false;
+                }
+                
+                let errorMessage = 'ไม่สามารถอัปเดตสถานะได้';
+                
+                if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                    errorMessage = 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบ:\n' +
+                                 '• การเชื่อมต่ออินเทอร์เน็ต\n' +
+                                 '• URL ของ Google Apps Script\n' +
+                                 '• การ Deploy Web App ใน Google Apps Script';
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาด',
+                    text: errorMessage,
+                    confirmButtonText: 'ตกลง',
+                    footer: `<small>รายละเอียด: ${error.name || 'Unknown Error'}</small>`
+                });
+            }
+        }
+
+        async function shareNewDocumentToLine(data) {
+            if (!liffInitialized) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'ไม่สามารถแชร์ได้',
+                    text: 'กรุณาเปิดแอปใน LINE Browser',
+                    confirmButtonText: 'ตกลง'
+                });
+                return;
+            }
+            
+            try {
+                showOverlayLoading('กำลังส่งข้อความ...');
+                
+                const textMessage = `📚 แจ้งส่งหนังสือเข้าใหม่\n` +
+                    `━━━━━━━━━━━━━━━━━━━━\n` +
+                    `📄 เลขที่: ${data.docNumber}\n` +
+                    `📋 เรื่อง: ${data.subject}\n` +
+                    `🎯 กิจกรรม: ${data.activity}\n` +
+                    `👨‍🏫 ผู้รับผิดชอบ: ${data.responsible}\n` +
+                    `📅 วันที่: ${data.date}\n` +
+                    `${data.fileLink ? `🔗 ลิงก์ไฟล์: ${data.fileLink}\n` : ''}` +
+                    `━━━━━━━━━━━━━━━━━━━━\n` +
+                    `📱 ดูรายละเอียดเพิ่มเติม: ${window.location.href}`;
+                
+                await liff.shareTargetPicker([
+                    {
+                        type: "text",
+                        text: textMessage
+                    }
+                ]);
+                
+                hideOverlayLoading();
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'ส่งข้อมูลสำเร็จ!',
+                    text: 'ข้อมูลหนังสือถูกส่งไปยัง LINE เรียบร้อยแล้ว',
+                    confirmButtonText: 'ตกลง',
+                    timer: 3000
+                });
+                
+            } catch (error) {
+                console.error('Share new document error:', error);
+                hideOverlayLoading();
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาด',
+                    text: `ไม่สามารถส่งข้อมูลไปยัง LINE ได้: ${error.message}`,
+                    confirmButtonText: 'ตกลง'
+                });
+            }
+        }
+
+        async function shareAcknowledgmentToLine(data) {
+            if (!liffInitialized) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'ไม่สามารถแชร์ได้',
+                    text: 'กรุณาเปิดแอปใน LINE Browser',
+                    confirmButtonText: 'ตกลง'
+                });
+                return;
+            }
+            
+            try {
+                showOverlayLoading('กำลังส่งข้อความรับทราบ...');
+                
+                const userName = userProfile ? userProfile.displayName : 'ผู้ใช้';
+                const textMessage = `✅ แจ้งรับทราบหนังสือ\n` +
+                    `━━━━━━━━━━━━━━━━━━━━\n` +
+                    `📄 เลขที่: ${data.docNumber}\n` +
+                    `📋 เรื่อง: ${data.subject}\n` +
+                    `🎯 กิจกรรม: ${data.activity}\n` +
+                    `👨‍🏫 ผู้รับผิดชอบ: ${data.responsible}\n` +
+                    `${data.fileLink ? `🔗 ลิงก์ไฟล์: ${data.fileLink}\n` : ''}` +
+                    `━━━━━━━━━━━━━━━━━━━━\n` +
+                    `✅ สถานะ: รับทราบแล้ว\n` +
+                    `👤 ผู้รับทราบ: ${userName}\n` +
+                    `🕒 เวลา: ${new Date().toLocaleString('th-TH')}\n` +
+                    `━━━━━━━━━━━━━━━━━━━━\n` +
+                    `📱 ดูรายละเอียดเพิ่มเติม: ${window.location.href}`;
+                
+                await liff.shareTargetPicker([
+                    {
+                        type: "text",
+                        text: textMessage
+                    }
+                ]);
+                
+                hideOverlayLoading();
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'ส่งข้อมูลสำเร็จ!',
+                    text: 'ข้อมูลการรับทราบถูกส่งไปยัง LINE เรียบร้อยแล้ว',
+                    confirmButtonText: 'ตกลง',
+                    timer: 3000
+                });
+                
+            } catch (error) {
+                console.error('Share acknowledgment error:', error);
+                hideOverlayLoading();
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาด',
+                    text: `ไม่สามารถส่งข้อมูลไปยัง LINE ได้: ${error.message}`,
+                    confirmButtonText: 'ตกลง'
+                });
+            }
+        }
+
+        async function showDetailModal(id) {
+            try {
+                showOverlayLoading('กำลังโหลดรายละเอียด...');
+                
+                const data = await fetchWithRetry(`${GAS_URL}?action=getDetail&id=${id}`, { method: 'GET' });
+                const detailContent = document.getElementById('detail-content');
+                const formattedDate = formatDate(data.date);
+                
+                detailContent.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="card-hover">
+                            <p class="text-sm font-medium text-gray-500">วันที่</p>
+                            <p class="text-lg">${formattedDate}</p>
+                        </div>
+                        <div class="card-hover">
+                            <p class="text-sm font-medium text-gray-500">เลขที่หนังสือ</p>
+                            <p class="text-lg">${data.docNumber}</p>
+                        </div>
+                    </div>
+                    <div class="card-hover">
+                        <p class="text-sm font-medium text-gray-500">เรื่อง</p>
+                        <p class="text-lg">${data.subject}</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="card-hover">
+                            <p class="text-sm font-medium text-gray-500">กิจกรรม</p>
+                            <p class="text-lg">${data.activity}</p>
+                        </div>
+                        <div class="card-hover">
+                            <p class="text-sm font-medium text-gray-500">ผู้รับผิดชอบ</p>
+                            <p class="text-lg">${data.responsible}</p>
+                        </div>
+                    </div>
+                    <div class="card-hover">
+                        <p class="text-sm font-medium text-gray-500">สถานะ</p>
+                        <p class="text-lg">${getStatusBadge(data.status)}</p>
+                    </div>
+                    ${data.fileLink ? `
+                        <div class="card-hover">
+                            <p class="text-sm font-medium text-gray-500">ลิงก์ไฟล์</p>
+                            <a href="${data.fileLink}" target="_blank" class="text-blue-600 hover:text-blue-800 flex items-center mt-2 transition-all hover:translate-x-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd" />
+                                </svg>
+                                ดูไฟล์
+                            </a>
+                        </div>
+                    ` : ''}
+                `;
+                
+                hideOverlayLoading();
+                document.getElementById('detail-modal').style.display = 'flex';
+            } catch (error) {
+                console.error('Show detail error:', error);
+                hideOverlayLoading();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาด',
+                    text: `ไม่สามารถโหลดรายละเอียดได้: ${error.message}`,
+                    confirmButtonText: 'ตกลง'
+                });
+            }
+        }
+
+        function initModals() {
+            const modal = document.getElementById('detail-modal');
+            const closeBtn = document.getElementById('close-detail-modal');
+            const closeDetailBtn = document.getElementById('close-detail-btn');
+            
+            closeBtn.addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+            
+            closeDetailBtn.addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+            
+            window.addEventListener('click', (event) => {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        }
+
+        function initSearchAndFilter() {
+            const searchInput = document.getElementById('search-input');
+            const filterActivity = document.getElementById('filter-activity');
+            
+            let searchTimeout;
+            
+            searchInput.addEventListener('input', () => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    fetchAllData(filterActivity.value, searchInput.value);
+                }, 300);
+            });
+            
+            filterActivity.addEventListener('change', () => {
+                fetchAllData(filterActivity.value, searchInput.value);
+            });
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'ไม่ระบุ';
+            
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('th-TH', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric' 
+                });
+            } catch (error) {
+                console.error('Date formatting error:', error);
+                return dateString;
+            }
+        }
+
+        function getStatusBadge(status) {
+            if (!status) return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">ไม่ระบุ</span>';
+            
+            const isAcknowledged = status === 'รับทราบแล้ว';
+            const colorClass = isAcknowledged ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
+            
+            return `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${colorClass}">${status}</span>`;
+        }
+
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('Unhandled promise rejection:', event.reason);
+            event.preventDefault();
+        });
+
+        window.addEventListener('error', function(event) {
+            console.error('Global error:', event.error);
+        });
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                console.log('Service Worker support detected');
+            });
+        }
+
+        window.addEventListener('online', function() {
+            console.log('Connection restored');
+            Swal.fire({
+                icon: 'success',
+                title: 'การเชื่อมต่อกลับมาแล้ว',
+                text: 'สามารถใช้งานระบบได้ตามปกติ',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000
+            });
+        });
+
+        window.addEventListener('offline', function() {
+            console.log('Connection lost');
+            Swal.fire({
+                icon: 'warning',
+                title: 'ไม่มีการเชื่อมต่ออินเทอร์เน็ต',
+                text: 'กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตของคุณ',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000
+            });
+        });
+
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                console.log('Page became visible');
+            }
+        });
+
+        try {
+            console.log('Application initialized successfully');
+        } catch (error) {
+            console.error('Application initialization error:', error);
+        }
+    </script>
+</body>
+</html>
