@@ -922,11 +922,9 @@
             createTableSkeleton('recent-data', 3, 3);
             const data = await fetchWithRetry(`${GAS_URL}?action=getRecent`, { method: 'GET' });
             renderTableData('recent-data', Array.isArray(data) ? data : [], true);
-            hideOverlayLoading();
         } catch (error) {
             console.error('Fetch recent data error:', error);
             renderTableData('recent-data', [], true);
-            hideOverlayLoading();
             document.getElementById('recent-data').innerHTML = `
                 <tr><td colspan="3" class="px-6 py-4 text-center text-sm text-red-500">
                     เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error.message}
@@ -942,11 +940,9 @@
             const params = new URLSearchParams({ action: 'getAll', activity: activityFilter, search: searchTerm });
             const data = await fetchWithRetry(`${GAS_URL}?${params}`, { method: 'GET' });
             renderTableData('all-data', Array.isArray(data) ? data : [], true);
-            hideOverlayLoading();
         } catch (error) {
             console.error('Fetch all data error:', error);
             renderTableData('all-data', [], true);
-            hideOverlayLoading();
             document.getElementById('all-data').innerHTML = `
                 <tr><td colspan="3" class="px-6 py-4 text-center text-sm text-red-500">
                     เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error.message}
@@ -1172,6 +1168,7 @@
                         }
                     });
                     
+                    // Update tables after saving
                     fetchRecentData();
                     fetchAllData();
                     form.reset();
@@ -1263,44 +1260,11 @@
                             spread: 70, 
                             origin: { y: 0.6 } 
                         });
-                        
-                        if (liffInitialized && liff.getContext().type === 'utou') {
-                            Swal.fire({
-                                title: 'แชร์การรับทราบไปยัง LINE',
-                                text: 'ต้องการส่งข้อมูลการรับทราบไปยังกลุ่ม, เพื่อน, หรือบอทใน LINE หรือไม่?',
-                                icon: 'question',
-                                showCancelButton: true,
-                                confirmButtonText: 'ส่งไปยัง LINE',
-                                cancelButtonText: 'ไม่ส่ง',
-                                confirmButtonColor: '#00B900',
-                                allowOutsideClick: false,
-                                allowEscapeKey: false
-                            }).then(async (shareResult) => {
-                                if (shareResult.isConfirmed) {
-                                    console.log('User confirmed to share acknowledgment');
-                                    const shareSuccess = await shareToLine(data, true);
-                                    console.log('Share acknowledgment result:', shareSuccess);
-                                } else {
-                                    console.log('User declined to share acknowledgment');
-                                }
-                            });
-                        } else {
-                            console.log('LIFF not initialized or not in LINE Mobile App, cannot share');
-                            Swal.fire({
-                                icon: 'info',
-                                title: 'ไม่สามารถแชร์ได้',
-                                text: 'กรุณาเปิดแอปใน LINE Mobile App เพื่อใช้ฟีเจอร์แชร์',
-                                confirmButtonText: 'ตกลง'
-                            });
-                        }
+                        // Update tables after acknowledgment
+                        fetchRecentData();
+                        fetchAllData();
                     }
                 });
-                
-                // Refresh data
- Angband
-                // Refresh data
-                fetchRecentData();
-                fetchAllData();
                 
             } else {
                 throw new Error(response?.message || 'เกิดข้อผิดพลาดในการรับทราบเอกสาร');
@@ -1466,10 +1430,6 @@
 
     async function shareNewDocumentToLine(data) {
         return await shareToLine(data, false);
-    }
-
-    async function shareAcknowledgmentToLine(data) {
-        return await shareToLine(data, true);
     }
 
     async function showDetailModal(id) {
