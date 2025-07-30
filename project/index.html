@@ -747,6 +747,7 @@
                         timer: 2000,
                         showConfirmButton: false
                     });
+                    
                     fetchRecentData();
                     fetchAllData();
                     
@@ -1193,7 +1194,7 @@
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: params
+                    body: params REPLACE_WITH params
                 }, 2, 1000);
             }
             
@@ -1319,7 +1320,7 @@
                 context: liff.getContext()
             });
 
-            if (!canUseShareTargetPicker) {
+            if (!canUseShareShareTargetPicker) {
                 throw new Error('ฟีเจอร์ shareTargetPicker ไม่สามารถใช้งานได้ กรุณาเปิดใน LINE Mobile App');
             }
 
