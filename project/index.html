@@ -1282,7 +1282,7 @@
             }
         }
 
-        // Enhanced share function with better mobile compatibility
+        // Enhanced share function with better mobile compatibility, using only shareTargetPicker
         async function shareToLine(data, isAcknowledgment = false) {
             if (!liffInitialized) {
                 Swal.fire({
@@ -1297,16 +1297,14 @@
             try {
                 // Check if shareTargetPicker is available
                 const canUseShareTargetPicker = liff.isApiAvailable('shareTargetPicker');
-                const canUseSendMessages = liff.isApiAvailable('sendMessages');
                 
                 console.log('Share capabilities:', {
                     shareTargetPicker: canUseShareTargetPicker,
-                    sendMessages: canUseSendMessages,
                     context: liff.getContext()
                 });
 
-                if (!canUseShareTargetPicker && !canUseSendMessages) {
-                    throw new Error('ไม่สามารถใช้ฟีเจอร์แชร์ได้ในสภาพแวดล้อมปัจจุบัน');
+                if (!canUseShareTargetPicker) {
+                    throw new Error('ฟีเจอร์ shareTargetPicker ไม่สามารถใช้งานได้ในสภาพแวดล้อมปัจจุบัน กรุณาเปิดใน LINE Mobile App');
                 }
 
                 showOverlayLoading(isAcknowledgment ? 'กำลังเตรียมข้อความรับทราบ...' : 'กำลังเตรียมข้อความ...');
@@ -1351,43 +1349,15 @@
                 let result = false;
                 let shareMethod = '';
 
-                // Try shareTargetPicker first (preferred method)
-                if (canUseShareTargetPicker) {
-                    try {
-                        console.log('Attempting shareTargetPicker...');
-                        shareMethod = 'shareTargetPicker';
-                        result = await liff.shareTargetPicker([messageObj]);
-                        console.log('shareTargetPicker result:', result);
-                    } catch (shareError) {
-                        console.error('shareTargetPicker failed:', shareError);
-                        
-                        // Fallback to sendMessages if available
-                        if (canUseSendMessages) {
-                            try {
-                                console.log('Fallback to sendMessages...');
-                                shareMethod = 'sendMessages';
-                                await liff.sendMessages([messageObj]);
-                                result = true;
-                                console.log('sendMessages succeeded');
-                            } catch (sendError) {
-                                console.error('sendMessages also failed:', sendError);
-                                throw new Error(`ทั้ง shareTargetPicker และ sendMessages ล้มเหลว: ${sendError.message}`);
-                            }
-                        } else {
-                            throw shareError;
-                        }
-                    }
-                } else if (canUseSendMessages) {
-                    try {
-                        console.log('Using sendMessages (shareTargetPicker not available)...');
-                        shareMethod = 'sendMessages';
-                        await liff.sendMessages([messageObj]);
-                        result = true;
-                        console.log('sendMessages succeeded');
-                    } catch (sendError) {
-                        console.error('sendMessages failed:', sendError);
-                        throw sendError;
-                    }
+                // Use only shareTargetPicker
+                try {
+                    console.log('Attempting shareTargetPicker...');
+                    shareMethod = 'shareTargetPicker';
+                    result = await liff.shareTargetPicker([messageObj]);
+                    console.log('shareTargetPicker result:', result);
+                } catch (shareError) {
+                    console.error('shareTargetPicker failed:', shareError);
+                    throw shareError;
                 }
 
                 if (result) {
@@ -1417,7 +1387,7 @@
                 let errorMessage = `ไม่สามารถส่งข้อมูลไปยัง LINE ได้`;
                 
                 if (error.message.includes('not supported')) {
-                    errorMessage = 'ฟีเจอร์แชร์ไม่รองรับในสภาพแวดล้อมปัจจุบัน กรุณาเปิดใน LINE Browser';
+                    errorMessage = 'ฟีเจอร์แชร์ไม่รองรับในสภาพแวดล้อมปัจจุบัน กรุณาเปิดใน LINE Mobile App';
                 } else if (error.message.includes('permission')) {
                     errorMessage = 'ไม่มีสิทธิ์ในการส่งข้อความ กรุณาตรวจสอบการตั้งค่า';
                 } else if (error.message.includes('network') || error.message.includes('fetch')) {
