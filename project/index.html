@@ -523,6 +523,7 @@
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbzHrM4TXg-Ot2P1da3Jq6J5b6W7Ukn2jLr_0Mql8XvfY-XXm9G1_H2HUFIlTrqkSzgc/exec';
     const LIFF_ID = '2005780370-27LZkWna';
     const LINE_BOT_ID = '@233svlmc';
+    const LIFF_URL = 'https://liff.line.me/2005780370-27LZkWna';
 
     let liffInitialized = false;
     let userProfile = null;
@@ -555,7 +556,7 @@
         }
     }
     
-    function createTableSkeleton(containerId, rows = 3, columns = 6) {
+    function createTableSkeleton(containerId, rows = 3, columns = 3) {
         const container = document.getElementById(containerId);
         let skeletonHTML = '';
         
@@ -747,6 +748,8 @@
                         showConfirmButton: false
                     });
                     
+ Assassins Creed Odyssey
+                    
                     fetchRecentData();
                     fetchAllData();
                     
@@ -790,7 +793,7 @@
                 initSearchAndFilter();
                 
                 document.getElementById('recent-data').innerHTML = `
-                    <tr><td colspan="6" class="px-6 py-8 text-center">
+                    <tr><td colspan="3" class="px-6 py-8 text-center">
                         <div class="flex flex-col items-center">
                             <svg class="h-12 w-12 text-red-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.314 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -847,13 +850,13 @@
 
     async function fetchRecentData() {
         try {
-            createTableSkeleton('recent-data', 3, 6);
+            createTableSkeleton('recent-data', 3, 3);
             const data = await fetchWithRetry(`${GAS_URL}?action=getRecent`, { method: 'GET' });
-            renderTableData('recent-data', Array.isArray(data) ? data : [], false);
+            renderTableData('recent-data', Array.isArray(data) ? data : [], true);
         } catch (error) {
             console.error('Fetch recent data error:', error);
             document.getElementById('recent-data').innerHTML = `
-                <tr><td colspan="6" class="px-6 py-4 text-center text-sm text-red-500">
+                <tr><td colspan="3" class="px-6 py-4 text-center text-sm text-red-500">
                     เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error.message}
                 </td></tr>
             `;
@@ -892,7 +895,7 @@
         
         if (!Array.isArray(data) || data.length === 0) {
             container.innerHTML = `
-                <tr><td colspan="${includeActions ? 7 : 6}" class="px-6 py-4 text-center text-sm text-gray-500">
+                <tr><td colspan="${containerId === 'recent-data' ? 3 : 7}" class="px-6 py-4 text-center text-sm text-gray-500">
                     ไม่พบข้อมูล
                 </td></tr>
             `;
@@ -906,17 +909,23 @@
             
             const formattedDate = formatDate(item.date);
             
-            let html = `
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formattedDate}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.docNumber}</td>
-                <td class="px-6 py-4 text-sm text-gray-900">${item.subject}</td>
-                <td class="px-6 py-4 text-sm text-gray-900">${item.activity}</td>
-                <td class="px-6 py-4 text-sm text-gray-900">${item.responsible}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm">${getStatusBadge(item.status)}</td>
-            `;
-            
-            if (includeActions) {
-                html += `
+            let html;
+            if (containerId === 'recent-data') {
+                html = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formattedDate}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${item.subject}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
+                        <button class="view-details text-blue-600 hover:text-blue-800">ดูข้อมูล</button>
+                    </td>
+                `;
+            } else {
+                html = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formattedDate}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.docNumber}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${item.subject}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${item.activity}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${item.responsible}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${getStatusBadge(item.status)}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
                         <button class="view-details text-blue-600 hover:text-blue-800 mr-3">รายละเอียด</button>
                         ${item.status === 'รอการรับทราบ' ? 
@@ -944,19 +953,21 @@
             });
         });
         
-        container.querySelectorAll('.acknowledge-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const data = {
-                    id: btn.dataset.id,
-                    docNumber: btn.dataset.docNumber,
-                    subject: btn.dataset.subject,
-                    activity: btn.dataset.activity,
-                    responsible: btn.dataset.responsible,
-                    fileLink: btn.dataset.fileLink
-                };
-                acknowledgeDocument(data);
+        if (containerId !== 'recent-data') {
+            container.querySelectorAll('.acknowledge-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const data = {
+                        id: btn.dataset.id,
+                        docNumber: btn.dataset.docNumber,
+                        subject: btn.dataset.subject,
+                        activity: btn.dataset.activity,
+                        responsible: btn.dataset.responsible,
+                        fileLink: btn.dataset.fileLink
+                    };
+                    acknowledgeDocument(data);
+                });
             });
-        });
+        }
     }
 
     async function initCharts() {
@@ -1103,10 +1114,10 @@
                                 origin: { y: 0.6 } 
                             });
                             
-                            if (liffInitialized) {
+                            if (liffInitialized && liff.getContext().type === 'utou') {
                                 Swal.fire({
                                     title: 'แชร์ข้อมูลไปยัง LINE',
-                                    text: 'ต้องการส่งข้อมูลหนังสือนี้ไปยังกลุ่ม LINE หรือไม่?',
+                                    text: 'ต้องการส่งข้อมูลหนังสือนี้ไปยังกลุ่ม, เพื่อน, หรือบอทใน LINE หรือไม่?',
                                     icon: 'question',
                                     showCancelButton: true,
                                     confirmButtonText: 'ส่งไปยัง LINE',
@@ -1146,7 +1157,7 @@
         if (acknowledgeBtn) {
             acknowledgeBtn.classList.add('btn-loading');
             acknowledgeBtn.innerHTML = `
-                <span class="btn-text" style="opacity: 0;">รับทราบ</span>
+                <span class="btn-text" style="opacity: 0;">กำลังรับทราบ...</span>
                 <div class="btn-spinner"></div>
             `;
             acknowledgeBtn.disabled = true;
@@ -1216,7 +1227,7 @@
                         if (liffInitialized && liff.getContext().type === 'utou') {
                             Swal.fire({
                                 title: 'แชร์การรับทราบไปยัง LINE',
-                                text: 'ต้องการส่งข้อมูลการรับทราบไปยังกลุ่ม LINE หรือไม่?',
+                                text: 'ต้องการส่งข้อมูลการรับทราบไปยังกลุ่ม, เพื่อน, หรือบอทใน LINE หรือไม่?',
                                 icon: 'question',
                                 showCancelButton: true,
                                 confirmButtonText: 'ส่งไปยัง LINE',
@@ -1259,6 +1270,8 @@
             if (acknowledgeBtn) {
                 acknowledgeBtn.classList.remove('btn-loading');
                 acknowledgeBtn.innerHTML = 'รับทราบ';
+                acknowledgeBtn.classList.remove('bg-gray-400');
+                acknowledgeBtn.classList.add('bg-green-600', 'hover:bg-green-700');
                 acknowledgeBtn.disabled = false;
             }
             
@@ -1331,7 +1344,7 @@
                     `👤 ผู้รับทราบ: ${userName}\n` +
                     `🕒 เวลา: ${new Date().toLocaleString('th-TH')}\n` +
                     `━━━━━━━━━━━━━━━━━━━━\n` +
-                    `📱 ดูรายละเอียดเพิ่มเติม: https://liff.line.me/2005780370-27LZkWna`;
+                    `📱 ดูรายละเอียดเพิ่มเติม: ${LIFF_URL}`;
             } else {
                 textMessage = `📚 แจ้งส่งหนังสือเข้าใหม่\n` +
                     `━━━━━━━━━━━━━━━━━━━━\n` +
@@ -1342,7 +1355,7 @@
                     `📅 วันที่: ${data.date}\n` +
                     `${data.fileLink ? `🔗 ลิงก์ไฟล์: ${data.fileLink}\n` : ''}` +
                     `━━━━━━━━━━━━━━━━━━━━\n` +
-                    `📱 ดูรายละเอียดเพิ่มเติม: https://liff.line.me/2005780370-27LZkWna`;
+                    `📱 ดูรายละเอียดเพิ่มเติม: ${LIFF_URL}`;
             }
 
             const messageObj = {
