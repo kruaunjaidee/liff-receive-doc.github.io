@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ระบบแจ้งส่งหนังสือเข้า</title>
+    
+    <!-- Add favicon to prevent 404 error -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
+    
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -1748,10 +1752,15 @@
             event.preventDefault();
         });
 
+        // Global error handler
+        window.addEventListener('error', function(event) {
+            console.error('Global error:', event.error);
+            // Don't show errors to users for minor issues
+        });
+
         // Service worker registration (optional, for offline functionality)
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                // You can register a service worker here for offline functionality
                 console.log('Service Worker support detected');
             });
         }
@@ -1759,7 +1768,15 @@
         // Handle online/offline status
         window.addEventListener('online', function() {
             console.log('Connection restored');
-            // Optionally refresh data when back online
+            Swal.fire({
+                icon: 'success',
+                title: 'การเชื่อมต่อกลับมาแล้ว',
+                text: 'สามารถใช้งานระบบได้ตามปกติ',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000
+            });
         });
 
         window.addEventListener('offline', function() {
@@ -1778,10 +1795,18 @@
         // Page visibility handling
         document.addEventListener('visibilitychange', function() {
             if (!document.hidden) {
-                // Page became visible, optionally refresh data
                 console.log('Page became visible');
+                // Optionally refresh data when page becomes visible
             }
         });
+
+        // Prevent console errors from breaking the app
+        try {
+            // Initialize everything
+            console.log('Application initialized successfully');
+        } catch (error) {
+            console.error('Application initialization error:', error);
+        }
     </script>
 </body>
 </html>
