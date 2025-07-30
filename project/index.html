@@ -595,13 +595,13 @@
     let userProfile = null;
 
     // Loading utility functions
-    function showOverlayLoading(text = 'กำลังดำเนินการ...') {
+    function showOverlayLoading(text = 'กำลังโหลดข้อมูล...') {
         document.getElementById('loading-text').textContent = text;
-        document.getElementById('overlay-loading').style.display = 'flex';
+        document.getElementById('preloader').style.display = 'flex';
     }
     
     function hideOverlayLoading() {
-        document.getElementById('overlay-loading').style.display = 'none';
+        document.getElementById('preloader').style.display = 'none';
     }
     
     function showButtonLoading(buttonId) {
@@ -782,11 +782,6 @@
     document.addEventListener('DOMContentLoaded', async function() {
         try {
             const liffReady = await initializeLiff();
-            
-            setTimeout(() => {
-                document.getElementById('preloader').style.display = 'none';
-            }, 1500);
-            
             initializeApp();
             
             document.getElementById('test-connection-btn').addEventListener('click', async function() {
@@ -836,7 +831,6 @@
             
         } catch (error) {
             console.error('App initialization error:', error);
-            document.getElementById('preloader').style.display = 'none';
             initializeApp();
         }
     });
@@ -898,6 +892,13 @@
                 
                 sections.forEach(section => section.classList.add('hidden'));
                 sections[index].classList.remove('hidden');
+                
+                // Fetch data when tab is clicked
+                if (index === 0) {
+                    fetchRecentData();
+                } else if (index === 1) {
+                    fetchAllData();
+                }
             });
         });
         
@@ -909,16 +910,20 @@
             
             sections[0].classList.add('hidden');
             sections[1].classList.remove('hidden');
+            fetchAllData();
         });
     }
 
     async function fetchRecentData() {
         try {
+            showOverlayLoading('กำลังโหลดข้อมูลล่าสุด...');
             createTableSkeleton('recent-data', 3, 3);
             const data = await fetchWithRetry(`${GAS_URL}?action=getRecent`, { method: 'GET' });
             renderTableData('recent-data', Array.isArray(data) ? data : [], true);
+            hideOverlayLoading();
         } catch (error) {
             console.error('Fetch recent data error:', error);
+            hideOverlayLoading();
             document.getElementById('recent-data').innerHTML = `
                 <tr><td colspan="3" class="px-6 py-4 text-center text-sm text-red-500">
                     เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error.message}
@@ -929,12 +934,15 @@
 
     async function fetchAllData(activityFilter = '', searchTerm = '') {
         try {
+            showOverlayLoading('กำลังโหลดข้อมูลทั้งหมด...');
             createTableSkeleton('all-data', 5, 3);
             const params = new URLSearchParams({ action: 'getAll', activity: activityFilter, search: searchTerm });
             const data = await fetchWithRetry(`${GAS_URL}?${params}`, { method: 'GET' });
             renderTableData('all-data', Array.isArray(data) ? data : [], true);
+            hideOverlayLoading();
         } catch (error) {
             console.error('Fetch all data error:', error);
+            hideOverlayLoading();
             document.getElementById('all-data').innerHTML = `
                 <tr><td colspan="3" class="px-6 py-4 text-center text-sm text-red-500">
                     เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error.message}
@@ -945,10 +953,13 @@
 
     async function fetchStats() {
         try {
+            showOverlayLoading('กำลังโหลดข้อมูลสถิติ...');
             const data = await fetchWithRetry(`${GAS_URL}?action=getStats`, { method: 'GET' });
+            hideOverlayLoading();
             return data;
         } catch (error) {
             console.error('Fetch stats error:', error);
+            hideOverlayLoading();
             return { activityStats: {}, responsibleStats: {} };
         }
     }
@@ -1092,6 +1103,7 @@
         
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
+            
             showButtonLoading('submit-btn');
             
             try {
