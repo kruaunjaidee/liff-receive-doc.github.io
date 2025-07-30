@@ -1247,99 +1247,6 @@
                     });
                 }
             });
-        }', async function(e) {
-                e.preventDefault();
-                
-                // Show loading state
-                const submitBtn = document.getElementById('submit-btn');
-                const originalText = submitBtn.innerHTML;
-                submitBtn.innerHTML = '<span>กำลังบันทึก...</span>';
-                submitBtn.disabled = true;
-                
-                try {
-                    const formData = new FormData();
-                    formData.append('action', 'saveDocument');
-                    formData.append('date', new Date().toISOString().split('T')[0]);
-                    formData.append('docNumber', document.getElementById('doc-number').value);
-                    formData.append('subject', document.getElementById('doc-subject').value);
-                    formData.append('activity', document.getElementById('activity').value);
-                    formData.append('responsible', document.getElementById('responsible').value);
-                    formData.append('fileLink', document.getElementById('file-link').value || '');
-                    
-                    const response = await fetchWithRetry(GAS_URL, {
-                        method: 'POST',
-                        body: formData
-                    });
-                    
-                    if (response.status === 'success') {
-                        // Create document data for sharing
-                        const documentData = {
-                            id: response.id,
-                            docNumber: document.getElementById('doc-number').value,
-                            subject: document.getElementById('doc-subject').value,
-                            activity: document.getElementById('activity').value,
-                            responsible: document.getElementById('responsible').value,
-                            fileLink: document.getElementById('file-link').value || '',
-                            date: new Date().toLocaleDateString('th-TH')
-                        };
-                        
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'บันทึกข้อมูลสำเร็จ!',
-                            text: 'ข้อมูลหนังสือถูกบันทึกเรียบร้อยแล้ว',
-                            confirmButtonText: 'ตกลง'
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                // Show confetti
-                                confetti({ 
-                                    particleCount: 100, 
-                                    spread: 70, 
-                                    origin: { y: 0.6 } 
-                                });
-                                
-                                // Ask to share to LINE
-                                if (liffInitialized) {
-                                    Swal.fire({
-                                        title: 'แชร์ข้อมูลไปยัง LINE',
-                                        text: 'ต้องการส่งข้อมูลหนังสือนี้ไปยังกลุ่ม LINE หรือไม่?',
-                                        icon: 'question',
-                                        showCancelButton: true,
-                                        confirmButtonText: 'ส่งไปยัง LINE',
-                                        cancelButtonText: 'ไม่ส่ง',
-                                        confirmButtonColor: '#00B900'
-                                    }).then((shareResult) => {
-                                        if (shareResult.isConfirmed) {
-                                            shareNewDocumentToLine(documentData);
-                                        }
-                                    });
-                                }
-                            }
-                        });
-                        
-                        // Refresh data
-                        fetchRecentData();
-                        fetchAllData();
-                        
-                        // Reset form
-                        form.reset();
-                        
-                    } else {
-                        throw new Error(response.message || 'Failed to save document');
-                    }
-                } catch (error) {
-                    console.error('Save document error:', error);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'เกิดข้อผิดพลาด',
-                        text: `ไม่สามารถบันทึกข้อมูลได้: ${error.message}`,
-                        confirmButtonText: 'ตกลง'
-                    });
-                } finally {
-                    // Restore button
-                    submitBtn.innerHTML = originalText;
-                    submitBtn.disabled = false;
-                }
-            });
         }
 
         async function acknowledgeDocument(data) {
@@ -1654,24 +1561,6 @@
             } catch (error) {
                 console.error('Show detail error:', error);
                 hideOverlayLoading();
-                Swal.fire({
-                    icon: 'error',
-                    title: 'เกิดข้อผิดพลาด',
-                    text: `ไม่สามารถโหลดรายละเอียดได้: ${error.message}`,
-                    confirmButtonText: 'ตกลง'
-                });
-            }
-        } 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd" />
-                                </svg>
-                                ดูไฟล์
-                            </a>
-                        </div>
-                    ` : ''}
-                `;
-                
-                document.getElementById('detail-modal').style.display = 'flex';
-            } catch (error) {
-                console.error('Show detail error:', error);
                 Swal.fire({
                     icon: 'error',
                     title: 'เกิดข้อผิดพลาด',
