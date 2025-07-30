@@ -646,20 +646,12 @@
                 await liff.init({ liffId: LIFF_ID });
                 console.log('LIFF initialized successfully');
                 
-                // Log LIFF context and capabilities
+                // Log LIFF context
                 console.log('LIFF Context:', {
                     type: liff.getContext().type,
                     viewType: liff.getContext().viewType,
                     userId: liff.getContext().userId,
                     utouId: liff.getContext().utouId
-                });
-                
-                // Check available APIs
-                console.log('LIFF APIs availability:', {
-                    shareTargetPicker: liff.isApiAvailable('shareTargetPicker'),
-                    sendMessages: liff.isApiAvailable('sendMessages'),
-                    getFriendship: liff.isApiAvailable('getFriendship'),
-                    scanCode: liff.isApiAvailable('scanCode')
                 });
                 
                 if (!liff.isLoggedIn()) {
@@ -1296,7 +1288,13 @@
 
             try {
                 // Check if shareTargetPicker is available
-                const canUseShareTargetPicker = liff.isApiAvailable('shareTargetPicker');
+                let canUseShareTargetPicker;
+                try {
+                    canUseShareTargetPicker = liff.isApiAvailable('shareTargetPicker');
+                } catch (apiCheckError) {
+                    console.error('Error checking API availability:', apiCheckError);
+                    canUseShareTargetPicker = false;
+                }
                 
                 console.log('Share capabilities:', {
                     shareTargetPicker: canUseShareTargetPicker,
@@ -1392,6 +1390,8 @@
                     errorMessage = 'ไม่มีสิทธิ์ในการส่งข้อความ กรุณาตรวจสอบการตั้งค่า';
                 } else if (error.message.includes('network') || error.message.includes('fetch')) {
                     errorMessage = 'เกิดปัญหาการเชื่อมต่อ กรุณาตรวจสอบอินเทอร์เน็ต';
+                } else if (error.message.includes('Unexpected API name')) {
+                    errorMessage = 'เกิดข้อผิดพลาดในการตรวจสอบ API กรุณาเปิดใน LINE App';
                 }
 
                 Swal.fire({
