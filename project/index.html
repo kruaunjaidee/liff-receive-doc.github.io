@@ -646,6 +646,22 @@
                 await liff.init({ liffId: LIFF_ID });
                 console.log('LIFF initialized successfully');
                 
+                // Log LIFF context and capabilities
+                console.log('LIFF Context:', {
+                    type: liff.getContext().type,
+                    viewType: liff.getContext().viewType,
+                    userId: liff.getContext().userId,
+                    utouId: liff.getContext().utouId
+                });
+                
+                // Check available APIs
+                console.log('LIFF APIs availability:', {
+                    shareTargetPicker: liff.isApiAvailable('shareTargetPicker'),
+                    sendMessages: liff.isApiAvailable('sendMessages'),
+                    getFriendship: liff.isApiAvailable('getFriendship'),
+                    scanCode: liff.isApiAvailable('scanCode')
+                });
+                
                 if (!liff.isLoggedIn()) {
                     console.log('User not logged in, redirecting to LINE login');
                     liff.login();
@@ -1137,6 +1153,11 @@
             
             try {
                 console.log('Acknowledging document with data:', data);
+                console.log('LIFF status:', {
+                    initialized: liffInitialized,
+                    loggedIn: liff.isLoggedIn(),
+                    context: liff.getContext()
+                });
                 
                 let response;
                 
@@ -1199,16 +1220,31 @@
                                     showCancelButton: true,
                                     confirmButtonText: 'ส่งไปยัง LINE',
                                     cancelButtonText: 'ไม่ส่ง',
-                                    confirmButtonColor: '#00B900'
-                                }).then((shareResult) => {
+                                    confirmButtonColor: '#00B900',
+                                    allowOutsideClick: false,
+                                    allowEscapeKey: false
+                                }).then(async (shareResult) => {
                                     if (shareResult.isConfirmed) {
-                                        shareAcknowledgmentToLine(data);
+                                        console.log('User confirmed to share acknowledgment');
+                                        const shareSuccess = await shareAcknowledgmentToLine(data);
+                                        console.log('Share acknowledgment result:', shareSuccess);
+                                    } else {
+                                        console.log('User declined to share acknowledgment');
                                     }
+                                });
+                            } else {
+                                console.log('LIFF not initialized, cannot share');
+                                Swal.fire({
+                                    icon: 'info',
+                                    title: 'ไม่สามารถแชร์ได้',
+                                    text: 'กรุณาเปิดแอปใน LINE Browser เพื่อใช้ฟีเจอร์แชร์',
+                                    confirmButtonText: 'ตกลง'
                                 });
                             }
                         }
                     });
                     
+                    // Refresh data
                     fetchRecentData();
                     fetchAllData();
                     
@@ -1246,7 +1282,8 @@
             }
         }
 
-        async function shareNewDocumentToLine(data) {
+        // Enhanced share function with better mobile compatibility
+        async function shareToLine(data, isAcknowledgment = false) {
             if (!liffInitialized) {
                 Swal.fire({
                     icon: 'warning',
@@ -1254,128 +1291,156 @@
                     text: 'กรุณาเปิดแอปใน LINE Browser',
                     confirmButtonText: 'ตกลง'
                 });
-                return;
+                return false;
             }
-            
+
             try {
-                showOverlayLoading('กำลังเตรียมข้อความ...');
+                // Check if shareTargetPicker is available
+                const canUseShareTargetPicker = liff.isApiAvailable('shareTargetPicker');
+                const canUseSendMessages = liff.isApiAvailable('sendMessages');
                 
-                const textMessage = `📚 แจ้งส่งหนังสือเข้าใหม่\n` +
-                    `━━━━━━━━━━━━━━━━━━━━\n` +
-                    `📄 เลขที่: ${data.docNumber}\n` +
-                    `📋 เรื่อง: ${data.subject}\n` +
-                    `🎯 กิจกรรม: ${data.activity}\n` +
-                    `👨‍🏫 ผู้รับผิดชอบ: ${data.responsible}\n` +
-                    `📅 วันที่: ${data.date}\n` +
-                    `${data.fileLink ? `🔗 ลิงก์ไฟล์: ${data.fileLink}\n` : ''}` +
-                    `━━━━━━━━━━━━━━━━━━━━\n` +
-                    `📱 ดูรายละเอียดเพิ่มเติม: ${window.location.href}`;
+                console.log('Share capabilities:', {
+                    shareTargetPicker: canUseShareTargetPicker,
+                    sendMessages: canUseSendMessages,
+                    context: liff.getContext()
+                });
+
+                if (!canUseShareTargetPicker && !canUseSendMessages) {
+                    throw new Error('ไม่สามารถใช้ฟีเจอร์แชร์ได้ในสภาพแวดล้อมปัจจุบัน');
+                }
+
+                showOverlayLoading(isAcknowledgment ? 'กำลังเตรียมข้อความรับทราบ...' : 'กำลังเตรียมข้อความ...');
+
+                let textMessage;
                 
+                if (isAcknowledgment) {
+                    const userName = userProfile ? userProfile.displayName : 'ผู้ใช้';
+                    textMessage = `✅ แจ้งรับทราบหนังสือ\n` +
+                        `━━━━━━━━━━━━━━━━━━━━\n` +
+                        `📄 เลขที่: ${data.docNumber}\n` +
+                        `📋 เรื่อง: ${data.subject}\n` +
+                        `🎯 กิจกรรม: ${data.activity}\n` +
+                        `👨‍🏫 ผู้รับผิดชอบ: ${data.responsible}\n` +
+                        `${data.fileLink ? `🔗 ลิงก์ไฟล์: ${data.fileLink}\n` : ''}` +
+                        `━━━━━━━━━━━━━━━━━━━━\n` +
+                        `✅ สถานะ: รับทราบแล้ว\n` +
+                        `👤 ผู้รับทราบ: ${userName}\n` +
+                        `🕒 เวลา: ${new Date().toLocaleString('th-TH')}\n` +
+                        `━━━━━━━━━━━━━━━━━━━━\n` +
+                        `📱 ดูรายละเอียดเพิ่มเติม: ${window.location.href}`;
+                } else {
+                    textMessage = `📚 แจ้งส่งหนังสือเข้าใหม่\n` +
+                        `━━━━━━━━━━━━━━━━━━━━\n` +
+                        `📄 เลขที่: ${data.docNumber}\n` +
+                        `📋 เรื่อง: ${data.subject}\n` +
+                        `🎯 กิจกรรม: ${data.activity}\n` +
+                        `👨‍🏫 ผู้รับผิดชอบ: ${data.responsible}\n` +
+                        `📅 วันที่: ${data.date}\n` +
+                        `${data.fileLink ? `🔗 ลิงก์ไฟล์: ${data.fileLink}\n` : ''}` +
+                        `━━━━━━━━━━━━━━━━━━━━\n` +
+                        `📱 ดูรายละเอียดเพิ่มเติม: ${window.location.href}`;
+                }
+
+                const messageObj = {
+                    type: "text",
+                    text: textMessage
+                };
+
                 hideOverlayLoading();
-                
-                const result = await liff.shareTargetPicker([
-                    {
-                        type: "text",
-                        text: textMessage
+
+                let result = false;
+                let shareMethod = '';
+
+                // Try shareTargetPicker first (preferred method)
+                if (canUseShareTargetPicker) {
+                    try {
+                        console.log('Attempting shareTargetPicker...');
+                        shareMethod = 'shareTargetPicker';
+                        result = await liff.shareTargetPicker([messageObj]);
+                        console.log('shareTargetPicker result:', result);
+                    } catch (shareError) {
+                        console.error('shareTargetPicker failed:', shareError);
+                        
+                        // Fallback to sendMessages if available
+                        if (canUseSendMessages) {
+                            try {
+                                console.log('Fallback to sendMessages...');
+                                shareMethod = 'sendMessages';
+                                await liff.sendMessages([messageObj]);
+                                result = true;
+                                console.log('sendMessages succeeded');
+                            } catch (sendError) {
+                                console.error('sendMessages also failed:', sendError);
+                                throw new Error(`ทั้ง shareTargetPicker และ sendMessages ล้มเหลว: ${sendError.message}`);
+                            }
+                        } else {
+                            throw shareError;
+                        }
                     }
-                ]);
-                
+                } else if (canUseSendMessages) {
+                    try {
+                        console.log('Using sendMessages (shareTargetPicker not available)...');
+                        shareMethod = 'sendMessages';
+                        await liff.sendMessages([messageObj]);
+                        result = true;
+                        console.log('sendMessages succeeded');
+                    } catch (sendError) {
+                        console.error('sendMessages failed:', sendError);
+                        throw sendError;
+                    }
+                }
+
                 if (result) {
                     Swal.fire({
                         icon: 'success',
                         title: 'ส่งข้อมูลสำเร็จ!',
-                        text: 'ข้อมูลหนังสือถูกส่งไปยัง LINE เรียบร้อยแล้ว',
+                        text: `ข้อมูล${isAcknowledgment ? 'การรับทราบ' : 'หนังสือ'}ถูกส่งไปยัง LINE เรียบร้อยแล้ว`,
                         confirmButtonText: 'ตกลง',
-                        timer: 3000
+                        timer: 3000,
+                        footer: `<small>วิธีการส่ง: ${shareMethod}</small>`
                     });
+                    return true;
                 } else {
                     Swal.fire({
                         icon: 'info',
                         title: 'ยกเลิกการส่ง',
-                        text: 'การส่งข้อมูลไปยัง LINE ถูกยกเลิก',
+                        text: `การส่งข้อมูล${isAcknowledgment ? 'การรับทราบ' : 'หนังสือ'}ไปยัง LINE ถูกยกเลิก`,
                         confirmButtonText: 'ตกลง'
                     });
+                    return false;
                 }
-                
+
             } catch (error) {
-                console.error('Share new document error:', error);
+                console.error('Share error:', error);
                 hideOverlayLoading();
+
+                let errorMessage = `ไม่สามารถส่งข้อมูลไปยัง LINE ได้`;
                 
+                if (error.message.includes('not supported')) {
+                    errorMessage = 'ฟีเจอร์แชร์ไม่รองรับในสภาพแวดล้อมปัจจุบัน กรุณาเปิดใน LINE Browser';
+                } else if (error.message.includes('permission')) {
+                    errorMessage = 'ไม่มีสิทธิ์ในการส่งข้อความ กรุณาตรวจสอบการตั้งค่า';
+                } else if (error.message.includes('network') || error.message.includes('fetch')) {
+                    errorMessage = 'เกิดปัญหาการเชื่อมต่อ กรุณาตรวจสอบอินเทอร์เน็ต';
+                }
+
                 Swal.fire({
                     icon: 'error',
                     title: 'เกิดข้อผิดพลาด',
-                    text: `ไม่สามารถส่งข้อมูลไปยัง LINE ได้: ${error.message}`,
-                    confirmButtonText: 'ตกลง'
+                    text: errorMessage,
+                    confirmButtonText: 'ตกลง',
+                    footer: `<small>รายละเอียด: ${error.message}</small>`
                 });
+                return false;
             }
         }
 
+        async function shareNewDocumentToLine(data) {
+            return await shareToLine(data, false);
+        }
+
         async function shareAcknowledgmentToLine(data) {
-            if (!liffInitialized) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'ไม่สามารถแชร์ได้',
-                    text: 'กรุณาเปิดแอปใน LINE Browser',
-                    confirmButtonText: 'ตกลง'
-                });
-                return;
-            }
-            
-            try {
-                showOverlayLoading('กำลังเตรียมข้อความรับทราบ...');
-                
-                const userName = userProfile ? userProfile.displayName : 'ผู้ใช้';
-                const textMessage = `✅ แจ้งรับทราบหนังสือ\n` +
-                    `━━━━━━━━━━━━━━━━━━━━\n` +
-                    `📄 เลขที่: ${data.docNumber}\n` +
-                    `📋 เรื่อง: ${data.subject}\n` +
-                    `🎯 กิจกรรม: ${data.activity}\n` +
-                    `👨‍🏫 ผู้รับผิดชอบ: ${data.responsible}\n` +
-                    `${data.fileLink ? `🔗 ลิงก์ไฟล์: ${data.fileLink}\n` : ''}` +
-                    `━━━━━━━━━━━━━━━━━━━━\n` +
-                    `✅ สถานะ: รับทราบแล้ว\n` +
-                    `👤 ผู้รับทราบ: ${userName}\n` +
-                    `🕒 เวลา: ${new Date().toLocaleString('th-TH')}\n` +
-                    `━━━━━━━━━━━━━━━━━━━━\n` +
-                    `📱 ดูรายละเอียดเพิ่มเติม: ${window.location.href}`;
-                
-                hideOverlayLoading();
-                
-                const result = await liff.shareTargetPicker([
-                    {
-                        type: "text",
-                        text: textMessage
-                    }
-                ]);
-                
-                if (result) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'ส่งข้อมูลสำเร็จ!',
-                        text: 'ข้อมูลการรับทราบถูกส่งไปยัง LINE เรียบร้อยแล้ว',
-                        confirmButtonText: 'ตกลง',
-                        timer: 3000
-                    });
-                } else {
-                    Swal.fire({
-                        icon: 'info',
-                        title: 'ยกเลิกการส่ง',
-                        text: 'การส่งข้อมูลการรับทราบไปยัง LINE ถูกยกเลิก',
-                        confirmButtonText: 'ตกลง'
-                    });
-                }
-                
-            } catch (error) {
-                console.error('Share acknowledgment error:', error);
-                hideOverlayLoading();
-                
-                Swal.fire({
-                    icon: 'error',
-                    title: 'เกิดข้อผิดพลาด',
-                    text: `ไม่สามารถส่งข้อมูลไปยัง LINE ได้: ${error.message}`,
-                    confirmButtonText: 'ตกลง'
-                });
-            }
+            return await shareToLine(data, true);
         }
 
         async function showDetailModal(id) {
