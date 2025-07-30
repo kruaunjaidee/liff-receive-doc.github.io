@@ -391,11 +391,8 @@
                         <thead class="bg-gray-50">
                             <tr>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เลขที่หนังสือ</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เรื่อง</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">กิจกรรม</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ผู้รับผิดชอบ</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ดูข้อมูล</th>
                             </tr>
                         </thead>
                         <tbody id="recent-data" class="bg-white divide-y divide-gray-200">
@@ -454,11 +451,7 @@
                         <thead class="bg-gray-50">
                             <tr>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เลขที่หนังสือ</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เรื่อง</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">กิจกรรม</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ผู้รับผิดชอบ</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">การดำเนินการ</th>
                             </tr>
                         </thead>
@@ -738,7 +731,7 @@
                 
                 if (isConnected) {
                     this.innerHTML = '✅ เชื่อมต่อสำเร็จ';
-                    this.classList.add('bg-green-500');
+                    this.classList.add('bg-green-600');
                     
                     Swal.fire({
                         icon: 'success',
@@ -753,16 +746,16 @@
                     
                     setTimeout(() => {
                         this.innerHTML = originalText;
-                        this.classList.remove('bg-green-500');
+                        this.classList.remove('bg-green-600');
                         this.disabled = false;
                     }, 3000);
                 } else {
                     this.innerHTML = '❌ การเชื่อมต่อล้มเหลว';
-                    this.classList.add('bg-red-500');
+                    this.classList.add('bg-red-600');
                     
                     setTimeout(() => {
                         this.innerHTML = originalText;
-                        this.classList.remove('bg-red-500');
+                        this.classList.remove('bg-red-600');
                         this.disabled = false;
                     }, 3000);
                 }
@@ -802,7 +795,7 @@
                     </td></tr>
                 `;
                 document.getElementById('all-data').innerHTML = `
-                    <tr><td colspan="7" class="px-6 py-8 text-center">
+                    <tr><td colspan="3" class="px-6 py-8 text-center">
                         <div class="flex flex-col items-center">
                             <svg class="h-12 w-12 text-red-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.314 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -863,14 +856,14 @@
 
     async function fetchAllData(activityFilter = '', searchTerm = '') {
         try {
-            createTableSkeleton('all-data', 5, 7);
+            createTableSkeleton('all-data', 5, 3);
             const params = new URLSearchParams({ action: 'getAll', activity: activityFilter, search: searchTerm });
             const data = await fetchWithRetry(`${GAS_URL}?${params}`, { method: 'GET' });
             renderTableData('all-data', Array.isArray(data) ? data : [], true);
         } catch (error) {
             console.error('Fetch all data error:', error);
             document.getElementById('all-data').innerHTML = `
-                <tr><td colspan="7" class="px-6 py-4 text-center text-sm text-red-500">
+                <tr><td colspan="3" class="px-6 py-4 text-center text-sm text-red-500">
                     เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error.message}
                 </td></tr>
             `;
@@ -893,7 +886,7 @@
         
         if (!Array.isArray(data) || data.length === 0) {
             container.innerHTML = `
-                <tr><td colspan="${containerId === 'recent-data' ? 3 : 7}" class="px-6 py-4 text-center text-sm text-gray-500">
+                <tr><td colspan="3" class="px-6 py-4 text-center text-sm text-gray-500">
                     ไม่พบข้อมูล
                 </td></tr>
             `;
@@ -907,39 +900,13 @@
             
             const formattedDate = formatDate(item.date);
             
-            let html;
-            if (containerId === 'recent-data') {
-                html = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formattedDate}</td>
-                    <td class="px-6 py-4 text-sm text-gray-900">${item.subject}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
-                        <button class="view-details text-blue-600 hover:text-blue-800">ดูข้อมูล</button>
-                    </td>
-                `;
-            } else {
-                html = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formattedDate}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.docNumber}</td>
-                    <td class="px-6 py-4 text-sm text-gray-900">${item.subject}</td>
-                    <td class="px-6 py-4 text-sm text-gray-900">${item.activity}</td>
-                    <td class="px-6 py-4 text-sm text-gray-900">${item.responsible}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm">${getStatusBadge(item.status)}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
-                        <button class="view-details text-blue-600 hover:text-blue-800 mr-3">รายละเอียด</button>
-                        ${item.status === 'รอการรับทราบ' ? 
-                            `<button class="acknowledge-btn bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700" 
-                                data-id="${item.id}" 
-                                data-doc-number="${item.docNumber}" 
-                                data-subject="${item.subject}" 
-                                data-activity="${item.activity}" 
-                                data-responsible="${item.responsible}" 
-                                data-file-link="${item.fileLink || ''}">
-                                รับทราบ
-                            </button>` : ''
-                        }
-                    </td>
-                `;
-            }
+            let html = `
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formattedDate}</td>
+                <td class="px-6 py-4 text-sm text-gray-900">${item.subject}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
+                    <button class="view-details text-blue-600 hover:text-blue-800">ดูข้อมูล</button>
+                </td>
+            `;
             
             row.innerHTML = html;
             container.appendChild(row);
@@ -950,22 +917,6 @@
                 showDetailModal(e.target.closest('tr').dataset.id);
             });
         });
-        
-        if (containerId !== 'recent-data') {
-            container.querySelectorAll('.acknowledge-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const data = {
-                        id: btn.dataset.id,
-                        docNumber: btn.dataset.docNumber,
-                        subject: btn.dataset.subject,
-                        activity: btn.dataset.activity,
-                        responsible: btn.dataset.responsible,
-                        fileLink: btn.dataset.fileLink
-                    };
-                    acknowledgeDocument(data);
-                });
-            });
-        }
     }
 
     async function initCharts() {
@@ -1320,7 +1271,7 @@
                 context: liff.getContext()
             });
 
-            if (!canUseShareShareTargetPicker) {
+            if (!canUseShareTargetPicker) {
                 throw new Error('ฟีเจอร์ shareTargetPicker ไม่สามารถใช้งานได้ กรุณาเปิดใน LINE Mobile App');
             }
 
@@ -1437,46 +1388,70 @@
             const formattedDate = formatDate(data.date);
             
             detailContent.innerHTML = `
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="card-hover">
-                        <p class="text-sm font-medium text-gray-500">วันที่</p>
-                        <p class="text-lg">${formattedDate}</p>
-                    </div>
-                    <div class="card-hover">
-                        <p class="text-sm font-medium text-gray-500">เลขที่หนังสือ</p>
-                        <p class="text-lg">${data.docNumber}</p>
-                    </div>
-                </div>
-                <div class="card-hover">
-                    <p class="text-sm font-medium text-gray-500">เรื่อง</p>
-                    <p class="text-lg">${data.subject}</p>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="card-hover">
-                        <p class="text-sm font-medium text-gray-500">กิจกรรม</p>
-                        <p class="text-lg">${data.activity}</p>
-                    </div>
-                    <div class="card-hover">
-                        <p class="text-sm font-medium text-gray-500">ผู้รับผิดชอบ</p>
-                        <p class="text-lg">${data.responsible}</p>
-                    </div>
-                </div>
-                <div class="card-hover">
-                    <p class="text-sm font-medium text-gray-500">สถานะ</p>
-                    <p class="text-lg">${getStatusBadge(data.status)}</p>
-                </div>
-                ${data.fileLink ? `
-                    <div class="card-hover">
-                        <p class="text-sm font-medium text-gray-500">ลิงก์ไฟล์</p>
-                        <a href="${data.fileLink}" target="_blank" class="text-blue-600 hover:text-blue-800 flex items-center mt-2 transition-all hover:translate-x-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd" />
-                            </svg>
-                            ดูไฟล์
-                        </a>
+                <table class="modal-table">
+                    <thead>
+                        <tr>
+                            <th>วันที่</th>
+                            <th>เลขที่หนังสือ</th>
+                            <th>เรื่อง</th>
+                            <th>กิจกรรม</th>
+                            <th>ผู้รับผิดชอบ</th>
+                            <th>สถานะ</th>
+                            ${data.fileLink ? '<th>ลิงก์ไฟล์</th>' : ''}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr data-id="${data.id}">
+                            <td>${formattedDate}</td>
+                            <td>${data.docNumber}</td>
+                            <td>${data.subject}</td>
+                            <td>${data.activity}</td>
+                            <td>${data.responsible}</td>
+                            <td>${getStatusBadge(data.status)}</td>
+                            ${data.fileLink ? `
+                                <td>
+                                    <a href="${data.fileLink}" target="_blank" class="text-blue-600 hover:text-blue-800 flex items-center transition-all hover:translate-x-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd" />
+                                        </svg>
+                                        ดูไฟล์
+                                    </a>
+                                </td>
+                            ` : ''}
+                        </tr>
+                    </tbody>
+                </table>
+                ${data.status === 'รอการรับทราบ' ? `
+                    <div class="mt-4 flex justify-end">
+                        <button id="acknowledge-modal-btn" class="acknowledge-btn bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center relative" 
+                            data-id="${data.id}" 
+                            data-doc-number="${data.docNumber}" 
+                            data-subject="${data.subject}" 
+                            data-activity="${data.activity}" 
+                            data-responsible="${data.responsible}" 
+                            data-file-link="${data.fileLink || ''}">
+                            <span class="btn-text">รับทราบ</span>
+                            <div class="btn-spinner" style="display: none;"></div>
+                        </button>
                     </div>
                 ` : ''}
             `;
+            
+            // Attach event listener for acknowledge button in modal
+            const acknowledgeBtn = document.getElementById('acknowledge-modal-btn');
+            if (acknowledgeBtn) {
+                acknowledgeBtn.addEventListener('click', () => {
+                    const acknowledgeData = {
+                        id: acknowledgeBtn.dataset.id,
+                        docNumber: acknowledgeBtn.dataset.docNumber,
+                        subject: acknowledgeBtn.dataset.subject,
+                        activity: acknowledgeBtn.dataset.activity,
+                        responsible: acknowledgeBtn.dataset.responsible,
+                        fileLink: acknowledgeBtn.dataset.fileLink
+                    };
+                    acknowledgeDocument(acknowledgeData);
+                });
+            }
             
             hideOverlayLoading();
             document.getElementById('detail-modal').style.display = 'flex';
