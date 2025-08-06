@@ -641,7 +641,7 @@
     async function testGASConnection() {
         try {
             console.log('Testing GAS connection...');
-            showOverlayLoading('กำลังทดสอบการเชื่อมต่อ...');
+            // showOverlayLoading('กำลังทดสอบการเชื่อมต่อ...');
            
             const response = await fetch(`${GAS_URL}?action=getRecent&test=true`, {
                 method: 'GET',
@@ -654,11 +654,11 @@
            
             const data = await response.json();
             console.log('GAS connection test successful:', data);
-            hideOverlayLoading();
+            // hideOverlayLoading();
             return true;
         } catch (error) {
             console.error('GAS connection test failed:', error);
-            hideOverlayLoading();
+            // hideOverlayLoading();
            
             Swal.fire({
                 icon: 'error',
@@ -819,9 +819,9 @@
         } catch (error) {
             console.error('App initialization error:', error);
             initializeApp();
-        } finally {
-            hidePreloader(); // Hide preloader after initial load
-        }
+        // } finally {
+        //     hidePreloader(); // Hide preloader after initial load
+        // }
     });
     function initializeApp() {
         testGASConnection().then(connectionOk => {
