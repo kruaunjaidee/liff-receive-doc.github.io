@@ -904,7 +904,7 @@
     }
     async function fetchRecentData() {
         try {
-            showOverlayLoading('กำลังโหลดข้อมูลล่าสุด...');
+            // showOverlayLoading('กำลังโหลดข้อมูลล่าสุด...');
             createTableSkeleton('recent-data', 3, 3);
             const data = await fetchWithRetry(`${GAS_URL}?action=getRecent`, { method: 'GET' });
             renderTableData('recent-data', Array.isArray(data) ? data : [], true);
@@ -917,12 +917,12 @@
                 </td></tr>
             `;
         } finally {
-            hideOverlayLoading();
+            // hideOverlayLoading();
         }
     }
     async function fetchAllData(activityFilter = '', searchTerm = '') {
         try {
-            showOverlayLoading('กำลังโหลดข้อมูลทั้งหมด...');
+            // showOverlayLoading('กำลังโหลดข้อมูลทั้งหมด...');
             createTableSkeleton('all-data', 5, 3);
             const params = new URLSearchParams({ action: 'getAll', activity: activityFilter, search: searchTerm });
             const data = await fetchWithRetry(`${GAS_URL}?${params}`, { method: 'GET' });
@@ -935,21 +935,21 @@
                     เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error.message}
                 </td></tr>
             `;
-        } finally {
-            hideOverlayLoading();
-        }
+        // } finally {
+        //     // hideOverlayLoading();
+        // }
     }
     async function fetchStats() {
         try {
-            showOverlayLoading('กำลังโหลดข้อมูลสถิติ...');
+            // showOverlayLoading('กำลังโหลดข้อมูลสถิติ...');
             const data = await fetchWithRetry(`${GAS_URL}?action=getStats`, { method: 'GET' });
             return data;
         } catch (error) {
             console.error('Fetch stats error:', error);
             return { activityStats: {}, responsibleStats: {} };
-        } finally {
-            hideOverlayLoading();
-        }
+        // } finally {
+        //     // hideOverlayLoading();
+        // }
     }
     function renderTableData(containerId, data, includeActions = false) {
         const container = document.getElementById(containerId);
@@ -1354,7 +1354,7 @@
                     `━━━━━━━━━━━━━━━━━━━━\n` +
                     `📱 ดูรายละเอียดเพิ่มเติม: ${LIFF_URL}`;
             }
-            showOverlayLoading(isAcknowledgment ? 'กำลังเตรียมข้อความรับทราบ...' : 'กำลังเตรียมข้อความ...');
+            // showOverlayLoading(isAcknowledgment ? 'กำลังเตรียมข้อความรับทราบ...' : 'กำลังเตรียมข้อความ...');
             // Check if user is not logged in and in external browser
             if (!liff.isInClient() && !liff.isLoggedIn()) {
                 console.log('User not logged in and in external browser, redirecting to LINE login');
@@ -1370,7 +1370,7 @@
                         liff.login();
                     }
                 });
-                hideOverlayLoading();
+                // hideOverlayLoading();
                 return false;
             }
             // Check if shareTargetPicker is available
@@ -1384,7 +1384,7 @@
                 ]);
                 console.log('shareTargetPicker result:', result);
                
-                hideOverlayLoading();
+                // hideOverlayLoading();
                
                 if (result) {
                     Swal.fire({
@@ -1410,7 +1410,7 @@
             }
         } catch (error) {
             console.error('Share error:', error);
-            hideOverlayLoading();
+            // hideOverlayLoading();
             let errorMessage = `ไม่สามารถส่งข้อมูลไปยัง LINE ได้`;
            
             if (error.message.includes('not supported') || error.message.includes('Unexpected API name')) {
@@ -1435,7 +1435,7 @@
     }
     async function showDetailModal(id) {
         try {
-            showOverlayLoading('กำลังโหลดรายละเอียด...');
+            // showOverlayLoading('กำลังโหลดรายละเอียด...');
            
             const data = await fetchWithRetry(`${GAS_URL}?action=getDetail&id=${id}`, { method: 'GET' });
             const detailContent = document.getElementById('detail-content');
@@ -1521,7 +1521,7 @@
                 confirmButtonText: 'ตกลง'
             });
         } finally {
-            hideOverlayLoading();
+            // hideOverlayLoading();
         }
     }
     function initModals() {
