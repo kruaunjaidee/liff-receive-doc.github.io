@@ -819,7 +819,8 @@
         } catch (error) {
             console.error('App initialization error:', error);
             initializeApp();
-        // } finally {
+         } 
+        //finally {
         //     hidePreloader(); // Hide preloader after initial load
         // }
     });
@@ -916,9 +917,10 @@
                     เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error.message}
                 </td></tr>
             `;
-        } finally {
-            // hideOverlayLoading();
-        }
+        } 
+        // finally {
+        //     // hideOverlayLoading();
+        // }
     }
     async function fetchAllData(activityFilter = '', searchTerm = '') {
         try {
@@ -935,7 +937,8 @@
                     เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error.message}
                 </td></tr>
             `;
-        } //finally {
+        } 
+        //finally {
         //     // hideOverlayLoading();
         // }
     }
@@ -947,7 +950,8 @@
         } catch (error) {
             console.error('Fetch stats error:', error);
             return { activityStats: {}, responsibleStats: {} };
-        // } finally {
+         } 
+        //finally {
         //     // hideOverlayLoading();
         // }
     }
@@ -1520,9 +1524,10 @@
                 text: `ไม่สามารถโหลดรายละเอียดได้: ${error.message}`,
                 confirmButtonText: 'ตกลง'
             });
-        } finally {
-            // hideOverlayLoading();
-        }
+        } 
+        // finally {
+        //     // hideOverlayLoading();
+        // }
     }
     function initModals() {
         const modal = document.getElementById('detail-modal');
