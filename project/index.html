@@ -643,7 +643,7 @@
     async function testGASConnection() {
         try {
             console.log('Testing GAS connection...');
-            showOverlayLoading('กำลังทดสอบการเชื่อมต่อ...');
+            // showOverlayLoading('กำลังทดสอบการเชื่อมต่อ...');
             
             const response = await fetch(`${GAS_URL}?action=getRecent&test=true`, {
                 method: 'GET',
@@ -797,7 +797,7 @@
                         icon: 'success',
                         title: 'การเชื่อมต่อปกติ',
                         text: 'สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้',
-                        timer: 2000,
+                        timer: 1500,
                         showConfirmButton: false
                     });
                     
@@ -808,7 +808,7 @@
                         this.innerHTML = originalText;
                         this.classList.remove('bg-green-600');
                         this.disabled = false;
-                    }, 3000);
+                    }, 2000);
                 } else {
                     this.innerHTML = '❌ การเชื่อมต่อล้มเหลว';
                     this.classList.add('bg-red-600');
@@ -817,7 +817,7 @@
                         this.innerHTML = originalText;
                         this.classList.remove('bg-red-600');
                         this.disabled = false;
-                    }, 3000);
+                    }, 2000);
                 }
             });
             
@@ -910,7 +910,8 @@
 
     async function fetchRecentData() {
         try {
-            showOverlayLoading('กำลังโหลดข้อมูลล่าสุด...');
+            Swal.fire({title: "กำลังเข้าถึงข้อมูล"});
+            Swal.showLoading();
             createTableSkeleton('recent-data', 3, 3);
             const data = await fetchWithRetry(`${GAS_URL}?action=getRecent`, { method: 'GET' });
             renderTableData('recent-data', Array.isArray(data) ? data : [], true);
@@ -927,7 +928,8 @@
 
     async function fetchAllData(activityFilter = '', searchTerm = '') {
         try {
-            showOverlayLoading('กำลังโหลดข้อมูลทั้งหมด...');
+            Swal.fire({title: "กำลังเข้าถึงข้อมูล"});
+            Swal.showLoading();
             createTableSkeleton('all-data', 5, 3);
             const params = new URLSearchParams({ action: 'getAll', activity: activityFilter, search: searchTerm });
             const data = await fetchWithRetry(`${GAS_URL}?${params}`, { method: 'GET' });
@@ -945,7 +947,8 @@
 
     async function fetchStats() {
         try {
-            showOverlayLoading('กำลังโหลดข้อมูลสถิติ...');
+            Swal.fire({title: "กำลังเข้าถึงข้อมูล"});
+            Swal.showLoading();
             const data = await fetchWithRetry(`${GAS_URL}?action=getStats`, { method: 'GET' });
             hideOverlayLoading();
             return data;
@@ -1184,6 +1187,8 @@
     async function acknowledgeDocument(data) {
         const acknowledgeBtn = document.querySelector(`[data-id="${data.id}"]`);
         if (acknowledgeBtn) {
+            Swal.fire({title: "กำลังบันทึกรับทราบ"});
+            Swal.showLoading();
             acknowledgeBtn.classList.add('btn-loading');
             acknowledgeBtn.innerHTML = `
                 <span class="btn-text" style="opacity: 0;">กำลังรับทราบ...</span>
@@ -1359,7 +1364,8 @@
                     `📱 ดูรายละเอียดเพิ่มเติม: ${LIFF_URL}`;
             }
 
-            showOverlayLoading(isAcknowledgment ? 'กำลังเตรียมข้อความรับทราบ...' : 'กำลังเตรียมข้อความ...');
+            Swal.fire({title: "กำลังแชร์ข้อมูล"});
+            Swal.showLoading();
 
             // Check if user is not logged in and in external browser
             if (!liff.isInClient() && !liff.isLoggedIn()) {
@@ -1447,7 +1453,8 @@
 
     async function showDetailModal(id) {
         try {
-            showOverlayLoading('กำลังโหลดรายละเอียด...');
+            Swal.fire({title: "กำลังเข้าถึงข้อมูล"});
+            Swal.showLoading();
             
             const data = await fetchWithRetry(`${GAS_URL}?action=getDetail&id=${id}`, { method: 'GET' });
             const detailContent = document.getElementById('detail-content');
@@ -1511,6 +1518,8 @@
             const acknowledgeBtn = document.getElementById('acknowledge-modal-btn');
             if (acknowledgeBtn) {
                 acknowledgeBtn.addEventListener('click', () => {
+                    Swal.fire({title: "กำลังเข้าถึงข้อมูล"});
+                    Swal.showLoading();
                     const acknowledgeData = {
                         id: acknowledgeBtn.dataset.id,
                         docNumber: acknowledgeBtn.dataset.docNumber,
