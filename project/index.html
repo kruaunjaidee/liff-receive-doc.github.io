@@ -66,7 +66,7 @@
         }
        
         /* Enhanced Preloader Styles */
-        .preloader {
+/*         .preloader {
             position: fixed;
             top: 0;
             left: 0;
@@ -78,7 +78,7 @@
             align-items: center;
             z-index: 9999;
             backdrop-filter: blur(10px);
-        }
+        } */
        
         .spinner {
             width: 60px;
@@ -586,14 +586,14 @@
     let liffInitialized = false;
     let userProfile = null;
     // Loading utility functions
-    function showPreloader(text = 'กำลังโหลดข้อมูล...') {
-        document.getElementById('loading-text').textContent = text;
-        document.getElementById('preloader').style.display = 'flex';
-    }
+    // function showPreloader(text = 'กำลังโหลดข้อมูล...') {
+    //     document.getElementById('loading-text').textContent = text;
+    //     document.getElementById('preloader').style.display = 'flex';
+    // }
    
-    function hidePreloader() {
-        document.getElementById('preloader').style.display = 'none';
-    }
+    // function hidePreloader() {
+    //     document.getElementById('preloader').style.display = 'none';
+    // }
 
     function showOverlayLoading(text = 'กำลังดำเนินการ...') {
         document.getElementById('loading-text').textContent = text;
