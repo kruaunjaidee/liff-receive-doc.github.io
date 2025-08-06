@@ -4,19 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ระบบแจ้งส่งหนังสือเข้า</title>
-    
+   
     <!-- Add favicon to prevent 404 error -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
-    
+   
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    
+   
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');
-        
+       
         :root {
             --primary: #FF5757;
             --secondary: #5271FF;
@@ -24,47 +24,47 @@
             --light: #FFFADD;
             --dark: #333333;
         }
-        
+       
         body {
             font-family: 'Prompt', sans-serif;
             background-color: #f8f9fa;
         }
-        
+       
         .gradient-bg {
             background: linear-gradient(135deg, var(--primary), var(--secondary));
         }
-        
+       
         .btn-primary {
             background-color: var(--primary);
             transition: all 0.3s ease;
         }
-        
+       
         .btn-primary:hover {
             background-color: #ff3c3c;
             transform: translateY(-2px);
         }
-        
+       
         .btn-secondary {
             background-color: var(--secondary);
             transition: all 0.3s ease;
         }
-        
+       
         .btn-secondary:hover {
             background-color: #3e5bff;
             transform: translateY(-2px);
         }
-        
+       
         .card {
             border-radius: 16px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
         }
-        
+       
         .card:hover {
             transform: translateY(-5px);
             box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
         }
-        
+       
         /* Enhanced Preloader Styles */
         .preloader {
             position: fixed;
@@ -79,7 +79,7 @@
             z-index: 9999;
             backdrop-filter: blur(10px);
         }
-        
+       
         .spinner {
             width: 60px;
             height: 60px;
@@ -89,19 +89,19 @@
             animation: spin 1s linear infinite;
             box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
         }
-        
+       
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        
+       
         /* Modern Loading Dots */
         .loading-dots {
             display: inline-flex;
             gap: 4px;
             align-items: center;
         }
-        
+       
         .loading-dot {
             width: 8px;
             height: 8px;
@@ -109,11 +109,11 @@
             background-color: currentColor;
             animation: bounce 1.4s infinite ease-in-out both;
         }
-        
+       
         .loading-dot:nth-child(1) { animation-delay: -0.32s; }
         .loading-dot:nth-child(2) { animation-delay: -0.16s; }
         .loading-dot:nth-child(3) { animation-delay: 0s; }
-        
+       
         @keyframes bounce {
             0%, 80%, 100% {
                 transform: scale(0.6);
@@ -124,7 +124,7 @@
                 opacity: 1;
             }
         }
-        
+       
         /* Skeleton Loading */
         .skeleton {
             background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
@@ -132,7 +132,7 @@
             animation: loading 1.5s infinite;
             border-radius: 4px;
         }
-        
+       
         @keyframes loading {
             0% {
                 background-position: 200% 0;
@@ -141,17 +141,17 @@
                 background-position: -200% 0;
             }
         }
-        
+       
         /* Button Loading State */
         .btn-loading {
             position: relative;
             pointer-events: none;
         }
-        
+       
         .btn-loading .btn-text {
             opacity: 0;
         }
-        
+       
         .btn-loading .btn-spinner {
             position: absolute;
             top: 50%;
@@ -164,7 +164,7 @@
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
-        
+       
         /* Overlay Loading */
         .overlay-loading {
             position: fixed;
@@ -179,7 +179,7 @@
             z-index: 9998;
             backdrop-filter: blur(5px);
         }
-        
+       
         .loading-container {
             background: white;
             padding: 30px;
@@ -189,7 +189,7 @@
             max-width: 300px;
             width: 90%;
         }
-        
+       
         .loading-icon {
             width: 50px;
             height: 50px;
@@ -199,7 +199,7 @@
             animation: spin 1s linear infinite;
             margin: 0 auto 20px;
         }
-        
+       
         /* Tab Animations */
         .tab-active {
             border-bottom: 3px solid var(--primary);
@@ -208,21 +208,21 @@
             transform: translateY(-2px);
             transition: all 0.3s ease;
         }
-        
+       
         /* Table Loading Skeleton */
         .table-skeleton {
             background: #f8f9fa;
             border-radius: 8px;
             overflow: hidden;
         }
-        
+       
         .table-skeleton-row {
             display: flex;
             padding: 16px;
             gap: 16px;
             border-bottom: 1px solid #e5e7eb;
         }
-        
+       
         .table-skeleton-cell {
             height: 20px;
             background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
@@ -230,12 +230,12 @@
             animation: loading 1.5s infinite;
             border-radius: 4px;
         }
-        
+       
         /* Card Hover Effects */
         .card-hover {
             transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
         }
-        
+       
         .card-hover:hover {
             transform: translateY(-8px);
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
@@ -247,26 +247,26 @@
             gap: 1rem;
             margin-top: 1rem;
         }
-        
+       
         .modal-row-item {
             display: flex;
             flex-direction: column;
             padding: 0.5rem;
             border-bottom: 1px solid #e5e7eb;
         }
-        
+       
         .modal-row-item label {
             font-weight: 600;
             color: #4b5563;
             font-size: 0.875rem;
             margin-bottom: 0.25rem;
         }
-        
+       
         .modal-row-item p {
             font-size: 1rem;
             color: #1f2937;
         }
-        
+       
         .modal-row-item a {
             display: flex;
             align-items: center;
@@ -274,23 +274,23 @@
             text-decoration: none;
             transition: color 0.2s ease, transform 0.2s ease;
         }
-        
+       
         .modal-row-item a:hover {
             color: #1e40af;
             transform: translateX(4px);
         }
-        
+       
         /* Responsive Table Styles */
         .table-responsive {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
         }
-        
+       
         @media screen and (max-width: 768px) {
             .table-responsive table {
                 min-width: 600px; /* Ensure table has minimum width to prevent excessive squeezing */
             }
-            
+           
             /* Reduce padding and font size for better mobile display */
             .table-responsive th,
             .table-responsive td {
@@ -298,14 +298,14 @@
                 font-size: 0.875rem; /* 14px */
             }
         }
-        
+       
         @media screen and (max-width: 480px) {
             .table-responsive th,
             .table-responsive td {
                 padding: 6px;
                 font-size: 0.75rem; /* 12px */
             }
-            
+           
             /* Ensure action buttons remain visible and usable */
             .table-responsive .view-details,
             .table-responsive .acknowledge-btn {
@@ -328,7 +328,6 @@
             </div>
         </div>
     </div>
-
     <!-- Overlay Loading for operations -->
     <div id="overlay-loading" class="overlay-loading" style="display: none;">
         <div class="loading-container">
@@ -336,14 +335,13 @@
             <p id="loading-text" class="text-lg font-medium text-gray-700">กำลังดำเนินการ...</p>
         </div>
     </div>
-
     <!-- Header -->
     <header class="gradient-bg text-white py-6 px-4 shadow-lg">
         <div class="container mx-auto">
             <h1 class="text-2xl md:text-3xl font-bold text-center">ระบบแจ้งส่งหนังสือเข้า</h1>
             <p class="text-center opacity-90 mt-1">กลุ่มสาระการเรียนรู้ภาษาไทย</p>
             <p id="doctor-display-name" class="text-center opacity-90 mt-1">กำลังโหลดชื่อผู้ใช้...</p>
-            
+           
             <!-- Connection Test Button -->
             <div class="text-center mt-3">
                 <button id="test-connection-btn" class="text-xs bg-white bg-opacity-20 hover:bg-opacity-30 px-3 py-1 rounded-full transition-all">
@@ -352,7 +350,6 @@
             </div>
         </div>
     </header>
-
     <!-- Main Content -->
     <main class="container mx-auto px-4 py-6">
         <!-- Tabs -->
@@ -361,12 +358,11 @@
             <button id="tab-data" class="px-4 py-2 text-lg text-gray-600">ข้อมูลล่าสุด</button>
             <button id="tab-stats" class="px-4 py-2 text-lg text-gray-600">สถิติ</button>
         </div>
-
         <!-- Form Section -->
         <div id="section-form" class="tab-section">
             <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
                 <h2 class="text-xl font-semibold mb-4 text-gray-800">บันทึกข้อมูลหนังสือเข้า</h2>
-                
+               
                 <form id="document-form" class="space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -374,14 +370,14 @@
                             <input type="text" id="doc-number" name="doc-number" required
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         </div>
-                        
+                       
                         <div>
                             <label for="doc-subject" class="block text-sm font-medium text-gray-700 mb-1">เรื่องที่แจ้ง</label>
                             <input type="text" id="doc-subject" name="doc-subject" required
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                     </div>
-                    
+                   
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label for="activity" class="block text-sm font-medium text-gray-700 mb-1">กิจกรรม</label>
@@ -406,7 +402,7 @@
                                 <option value="อื่น ๆ">อื่น ๆ</option>
                             </select>
                         </div>
-                        
+                       
                         <div>
                             <label for="responsible" class="block text-sm font-medium text-gray-700 mb-1">ครูผู้รับผิดชอบ</label>
                             <textarea id="responsible" name="responsible" required
@@ -429,13 +425,13 @@
 </textarea>
                         </div>
                     </div>
-                    
+                   
                     <div>
                         <label for="file-link" class="block text-sm font-medium text-gray-700 mb-1">ลิงก์ไฟล์ (ถ้ามี)</label>
                         <input type="text" id="file-link" name="file-link"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
-                    
+                   
                     <div class="flex justify-end space-x-3 pt-4">
                         <button type="reset" class="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-all">
                             ล้างข้อมูล
@@ -450,7 +446,7 @@
                     </div>
                 </form>
             </div>
-            
+           
             <div class="bg-white rounded-xl shadow-lg p-6">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-xl font-semibold text-gray-800">ข้อมูลล่าสุด</h2>
@@ -458,7 +454,7 @@
                         ดูทั้งหมด
                     </button>
                 </div>
-                
+               
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
@@ -477,12 +473,11 @@
                 </div>
             </div>
         </div>
-
         <!-- Data Section -->
         <div id="section-data" class="tab-section hidden">
             <div class="bg-white rounded-xl shadow-lg p-6">
                 <h2 class="text-xl font-semibold mb-4 text-gray-800">ข้อมูลทั้งหมด</h2>
-                
+               
                 <div class="mb-4">
                     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                         <div class="flex flex-col md:flex-row gap-2 md:items-center">
@@ -507,9 +502,9 @@
                                 <option value="อื่น ๆ">อื่น ๆ</option>
                             </select>
                         </div>
-                        
+                       
                         <div class="relative">
-                            <input type="text" id="search-input" placeholder="ค้นหา..." 
+                            <input type="text" id="search-input" placeholder="ค้นหา..."
                                 class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full">
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -519,7 +514,7 @@
                         </div>
                     </div>
                 </div>
-                
+               
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
@@ -538,7 +533,6 @@
                 </div>
             </div>
         </div>
-
         <!-- Stats Section -->
         <div id="section-stats" class="tab-section hidden">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -548,7 +542,7 @@
                         <canvas id="activity-chart"></canvas>
                     </div>
                 </div>
-                
+               
                 <div class="bg-white rounded-xl shadow-lg p-6">
                     <h2 class="text-xl font-semibold mb-4 text-gray-800">สถิติตามผู้รับผิดชอบ</h2>
                     <div class="h-80">
@@ -558,7 +552,6 @@
             </div>
         </div>
     </main>
-
     <!-- Modal for Document Details -->
     <div id="detail-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -571,11 +564,11 @@
                         </svg>
                     </button>
                 </div>
-                
+               
                 <div id="detail-content" class="space-y-4">
                     <!-- Details will be loaded here -->
                 </div>
-                
+               
                 <div class="mt-6 flex justify-end">
                     <button id="close-detail-btn" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-all">
                         ปิด
@@ -584,27 +577,33 @@
             </div>
         </div>
     </div>
-
     <script>
     // Global variables
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbzHrM4TXg-Ot2P1da3Jq6J5b6W7Ukn2jLr_0Mql8XvfY-XXm9G1_H2HUFIlTrqkSzgc/exec';
     const LIFF_ID = '2005780370-27LZkWna';
     const LINE_BOT_ID = '@233svlmc';
     const LIFF_URL = 'https://liff.line.me/2005780370-27LZkWna';
-
     let liffInitialized = false;
     let userProfile = null;
-
     // Loading utility functions
-    function showOverlayLoading(text = 'กำลังโหลดข้อมูล...') {
+    function showPreloader(text = 'กำลังโหลดข้อมูล...') {
         document.getElementById('loading-text').textContent = text;
         document.getElementById('preloader').style.display = 'flex';
     }
-    
-    function hideOverlayLoading() {
+   
+    function hidePreloader() {
         document.getElementById('preloader').style.display = 'none';
     }
-    
+
+    function showOverlayLoading(text = 'กำลังดำเนินการ...') {
+        document.getElementById('loading-text').textContent = text;
+        document.getElementById('overlay-loading').style.display = 'flex';
+    }
+   
+    function hideOverlayLoading() {
+        document.getElementById('overlay-loading').style.display = 'none';
+    }
+   
     function showButtonLoading(buttonId) {
         const button = document.getElementById(buttonId);
         if (button) {
@@ -613,7 +612,7 @@
             if (spinner) spinner.style.display = 'block';
         }
     }
-    
+   
     function hideButtonLoading(buttonId) {
         const button = document.getElementById(buttonId);
         if (button) {
@@ -622,11 +621,11 @@
             if (spinner) spinner.style.display = 'none';
         }
     }
-    
+   
     function createTableSkeleton(containerId, rows = 3, columns = 3) {
         const container = document.getElementById(containerId);
         let skeletonHTML = '';
-        
+       
         for (let i = 0; i < rows; i++) {
             skeletonHTML += '<tr class="table-skeleton-row">';
             for (let j = 0; j < columns; j++) {
@@ -635,25 +634,24 @@
             }
             skeletonHTML += '</tr>';
         }
-        
+       
         container.innerHTML = skeletonHTML;
     }
-
     // Test connection to Google Apps Script
     async function testGASConnection() {
         try {
             console.log('Testing GAS connection...');
-            // showOverlayLoading('กำลังทดสอบการเชื่อมต่อ...');
-            
+            showOverlayLoading('กำลังทดสอบการเชื่อมต่อ...');
+           
             const response = await fetch(`${GAS_URL}?action=getRecent&test=true`, {
                 method: 'GET',
                 mode: 'cors'
             });
-            
+           
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-            
+           
             const data = await response.json();
             console.log('GAS connection test successful:', data);
             hideOverlayLoading();
@@ -661,7 +659,7 @@
         } catch (error) {
             console.error('GAS connection test failed:', error);
             hideOverlayLoading();
-            
+           
             Swal.fire({
                 icon: 'error',
                 title: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้',
@@ -679,7 +677,6 @@
             return false;
         }
     }
-
     // Retry function for fetch with enhanced error handling
     async function fetchWithRetry(url, options, retries = 3, delay = 2000) {
         for (let i = 0; i < retries; i++) {
@@ -705,15 +702,14 @@
             }
         }
     }
-
     // LIFF initialization with better error handling
     async function initializeLiff() {
         try {
             console.log('Initializing LIFF with ID:', LIFF_ID);
-            
+           
             await liff.init({ liffId: LIFF_ID, withLoginOnExternalBrowser: true });
             console.log('LIFF initialized successfully');
-            
+           
             // Log LIFF context
             console.log('LIFF Context:', {
                 type: liff.getContext().type,
@@ -721,17 +717,17 @@
                 userId: liff.getContext().userId,
                 utouId: liff.getContext().utouId
             });
-            
+           
             if (!liff.isLoggedIn()) {
                 console.log('User not logged in, redirecting to LINE login');
                 liff.login();
                 return false;
             }
-            
+           
             userProfile = await liff.getProfile();
             console.log('User profile:', userProfile);
             document.getElementById('doctor-display-name').textContent = userProfile.displayName;
-            
+           
             try {
                 const friendship = await liff.getFriendship();
                 if (!friendship.friendFlag) {
@@ -751,31 +747,30 @@
             } catch (friendshipError) {
                 console.log('Cannot check friendship status:', friendshipError);
             }
-            
+           
             liffInitialized = true;
             return true;
-            
+           
         } catch (error) {
             console.error('LIFF initialization error:', error);
-            
+           
             Swal.fire({
                 icon: 'error',
                 title: 'ไม่สามารถเชื่อมต่อ LINE ได้',
                 text: 'กรุณาเปิดลิงก์นี้ใน LINE Mobile App หรือ Web Browser และล็อกอินด้วยบัญชี LINE',
                 confirmButtonText: 'ตกลง'
             });
-            
+           
             document.getElementById('doctor-display-name').textContent = 'ผู้ใช้ทั่วไป (ไม่ได้เชื่อมต่อ LINE)';
             return false;
         }
     }
-
     // Document ready and initialization
     document.addEventListener('DOMContentLoaded', async function() {
         try {
             const liffReady = await initializeLiff();
             initializeApp();
-            
+           
             document.getElementById('test-connection-btn').addEventListener('click', async function() {
                 const originalText = this.innerHTML;
                 this.innerHTML = `
@@ -786,47 +781,48 @@
                     </div>
                 `;
                 this.disabled = true;
-                
+               
                 const isConnected = await testGASConnection();
-                
+               
                 if (isConnected) {
                     this.innerHTML = '✅ เชื่อมต่อสำเร็จ';
                     this.classList.add('bg-green-600');
-                    
+                   
                     Swal.fire({
                         icon: 'success',
                         title: 'การเชื่อมต่อปกติ',
                         text: 'สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้',
-                        timer: 1500,
+                        timer: 2000,
                         showConfirmButton: false
                     });
-                    
+                   
                     fetchRecentData();
                     fetchAllData();
-                    
+                   
                     setTimeout(() => {
                         this.innerHTML = originalText;
                         this.classList.remove('bg-green-600');
                         this.disabled = false;
-                    }, 2000);
+                    }, 3000);
                 } else {
                     this.innerHTML = '❌ การเชื่อมต่อล้มเหลว';
                     this.classList.add('bg-red-600');
-                    
+                   
                     setTimeout(() => {
                         this.innerHTML = originalText;
                         this.classList.remove('bg-red-600');
                         this.disabled = false;
-                    }, 2000);
+                    }, 3000);
                 }
             });
-            
+           
         } catch (error) {
             console.error('App initialization error:', error);
             initializeApp();
+        } finally {
+            hidePreloader(); // Hide preloader after initial load
         }
     });
-
     function initializeApp() {
         testGASConnection().then(connectionOk => {
             if (connectionOk) {
@@ -841,7 +837,7 @@
                 initTabs();
                 initModals();
                 initSearchAndFilter();
-                
+               
                 document.getElementById('recent-data').innerHTML = `
                     <tr><td colspan="3" class="px-6 py-8 text-center">
                         <div class="flex flex-col items-center">
@@ -867,12 +863,11 @@
             }
         });
     }
-
     function initTabs() {
         const tabs = ['form', 'data', 'stats'];
         const tabButtons = tabs.map(tab => document.getElementById(`tab-${tab}`));
         const sections = tabs.map(tab => document.getElementById(`section-${tab}`));
-        
+       
         tabButtons.forEach((button, index) => {
             button.addEventListener('click', () => {
                 tabButtons.forEach(btn => {
@@ -881,10 +876,10 @@
                 });
                 button.classList.add('tab-active');
                 button.classList.remove('text-gray-600');
-                
+               
                 sections.forEach(section => section.classList.add('hidden'));
                 sections[index].classList.remove('hidden');
-                
+               
                 // Fetch data when tab is clicked
                 if (index === 0) {
                     fetchRecentData();
@@ -895,23 +890,21 @@
                 }
             });
         });
-        
+       
         document.getElementById('view-all-btn').addEventListener('click', () => {
             tabButtons[0].classList.remove('tab-active');
             tabButtons[0].classList.add('text-gray-600');
             tabButtons[1].classList.add('tab-active');
             tabButtons[1].classList.remove('text-gray-600');
-            
+           
             sections[0].classList.add('hidden');
             sections[1].classList.remove('hidden');
             fetchAllData();
         });
     }
-
     async function fetchRecentData() {
         try {
-            Swal.fire({title: "กำลังเข้าถึงข้อมูล"});
-            Swal.showLoading();
+            showOverlayLoading('กำลังโหลดข้อมูลล่าสุด...');
             createTableSkeleton('recent-data', 3, 3);
             const data = await fetchWithRetry(`${GAS_URL}?action=getRecent`, { method: 'GET' });
             renderTableData('recent-data', Array.isArray(data) ? data : [], true);
@@ -923,13 +916,13 @@
                     เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error.message}
                 </td></tr>
             `;
+        } finally {
+            hideOverlayLoading();
         }
     }
-
     async function fetchAllData(activityFilter = '', searchTerm = '') {
         try {
-            Swal.fire({title: "กำลังเข้าถึงข้อมูล"});
-            Swal.showLoading();
+            showOverlayLoading('กำลังโหลดข้อมูลทั้งหมด...');
             createTableSkeleton('all-data', 5, 3);
             const params = new URLSearchParams({ action: 'getAll', activity: activityFilter, search: searchTerm });
             const data = await fetchWithRetry(`${GAS_URL}?${params}`, { method: 'GET' });
@@ -942,44 +935,42 @@
                     เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error.message}
                 </td></tr>
             `;
+        } finally {
+            hideOverlayLoading();
         }
     }
-
     async function fetchStats() {
         try {
-            Swal.fire({title: "กำลังเข้าถึงข้อมูล"});
-            Swal.showLoading();
+            showOverlayLoading('กำลังโหลดข้อมูลสถิติ...');
             const data = await fetchWithRetry(`${GAS_URL}?action=getStats`, { method: 'GET' });
-            hideOverlayLoading();
             return data;
         } catch (error) {
             console.error('Fetch stats error:', error);
-            hideOverlayLoading();
             return { activityStats: {}, responsibleStats: {} };
+        } finally {
+            hideOverlayLoading();
         }
     }
-
     function renderTableData(containerId, data, includeActions = false) {
         const container = document.getElementById(containerId);
         container.innerHTML = '';
-        
+       
         if (!Array.isArray(data) || data.length === 0) {
             container.innerHTML = `
                 <tr><td colspan="3" class="px-6 py-4 text-center text-sm text-gray-500">
                     ไม่พบข้อมูล
                 </td></tr>
             `;
-            hideOverlayLoading();
             return;
         }
-        
+       
         data.forEach(item => {
             const row = document.createElement('tr');
             row.className = 'hover:bg-gray-50';
             row.dataset.id = item.id;
-            
+           
             const formattedDate = formatDate(item.date);
-            
+           
             let html = `
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formattedDate}</td>
                 <td class="px-6 py-4 text-sm text-gray-900">${item.subject}</td>
@@ -987,24 +978,21 @@
                     <button class="view-details text-blue-600 hover:text-blue-800">ดูข้อมูล</button>
                 </td>
             `;
-            
+           
             row.innerHTML = html;
             container.appendChild(row);
         });
-        
+       
         container.querySelectorAll('.view-details').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 showDetailModal(e.target.closest('tr').dataset.id);
             });
         });
-        
-        hideOverlayLoading();
     }
-
     async function initCharts() {
         try {
             const stats = await fetchStats();
-            
+           
             const activityCtx = document.getElementById('activity-chart').getContext('2d');
             new Chart(activityCtx, {
                 type: 'bar',
@@ -1021,23 +1009,23 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: { 
-                        y: { 
-                            beginAtZero: true, 
-                            ticks: { precision: 0 } 
-                        } 
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { precision: 0 }
+                        }
                     },
-                    plugins: { 
-                        legend: { display: false }, 
-                        title: { 
-                            display: true, 
-                            text: 'จำนวนกิจกรรมแยกตามประเภท', 
-                            font: { size: 16 } 
-                        } 
+                    plugins: {
+                        legend: { display: false },
+                        title: {
+                            display: true,
+                            text: 'จำนวนกิจกรรมแยกตามประเภท',
+                            font: { size: 16 }
+                        }
                     }
                 }
             });
-            
+           
             const responsibleCtx = document.getElementById('responsible-chart').getContext('2d');
             new Chart(responsibleCtx, {
                 type: 'pie',
@@ -1046,24 +1034,24 @@
                     datasets: [{
                         data: Object.values(stats.responsibleStats || {}),
                         backgroundColor: [
-                            'rgba(255, 87, 87, 0.7)', 
-                            'rgba(82, 113, 255, 0.7)', 
-                            'rgba(56, 182, 255, 0.7)', 
-                            'rgba(255, 250, 221, 0.7)', 
-                            'rgba(255, 159, 67, 0.7)', 
-                            'rgba(46, 213, 115, 0.7)', 
+                            'rgba(255, 87, 87, 0.7)',
+                            'rgba(82, 113, 255, 0.7)',
+                            'rgba(56, 182, 255, 0.7)',
+                            'rgba(255, 250, 221, 0.7)',
+                            'rgba(255, 159, 67, 0.7)',
+                            'rgba(46, 213, 115, 0.7)',
                             'rgba(155, 89, 182, 0.7)',
                             'rgba(255, 99, 132, 0.7)',
                             'rgba(54, 162, 235, 0.7)',
                             'rgba(255, 205, 86, 0.7)'
                         ],
                         borderColor: [
-                            'rgba(255, 87, 87, 1)', 
-                            'rgba(82, 113, 255, 1)', 
-                            'rgba(56, 182, 255, 1)', 
-                            'rgba(255, 250, 221, 1)', 
-                            'rgba(255, 159, 67, 1)', 
-                            'rgba(46, 213, 115, 1)', 
+                            'rgba(255, 87, 87, 1)',
+                            'rgba(82, 113, 255, 1)',
+                            'rgba(56, 182, 255, 1)',
+                            'rgba(255, 250, 221, 1)',
+                            'rgba(255, 159, 67, 1)',
+                            'rgba(46, 213, 115, 1)',
                             'rgba(155, 89, 182, 1)',
                             'rgba(255, 99, 132, 1)',
                             'rgba(54, 162, 235, 1)',
@@ -1075,19 +1063,19 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { 
-                        legend: { 
-                            position: 'right', 
-                            labels: { 
-                                boxWidth: 15, 
-                                font: { size: 11 } 
-                            } 
-                        }, 
-                        title: { 
-                            display: true, 
-                            text: 'จำนวนกิจกรรมแยกตามผู้รับผิดชอบ', 
-                            font: { size: 16 } 
-                        } 
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                boxWidth: 15,
+                                font: { size: 11 }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'จำนวนกิจกรรมแยกตามผู้รับผิดชอบ',
+                            font: { size: 16 }
+                        }
                     }
                 }
             });
@@ -1095,15 +1083,14 @@
             console.error('Charts initialization error:', error);
         }
     }
-
     function initFormSubmission() {
         const form = document.getElementById('document-form');
-        
+       
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+           
             showButtonLoading('submit-btn');
-            
+           
             try {
                 const formData = new FormData();
                 formData.append('action', 'saveDocument');
@@ -1113,12 +1100,12 @@
                 formData.append('activity', document.getElementById('activity').value);
                 formData.append('responsible', document.getElementById('responsible').value);
                 formData.append('fileLink', document.getElementById('file-link').value || '');
-                
+               
                 const response = await fetchWithRetry(GAS_URL, {
                     method: 'POST',
                     body: formData
                 });
-                
+               
                 if (response.status === 'success') {
                     const documentData = {
                         id: response.id,
@@ -1129,9 +1116,9 @@
                         fileLink: document.getElementById('file-link').value || '',
                         date: new Date().toLocaleDateString('th-TH')
                     };
-                    
+                   
                     hideButtonLoading('submit-btn');
-                    
+                   
                     Swal.fire({
                         icon: 'success',
                         title: 'บันทึกข้อมูลสำเร็จ!',
@@ -1139,12 +1126,12 @@
                         confirmButtonText: 'ตกลง'
                     }).then((result) => {
                         if (result.isConfirmed) {
-                            confetti({ 
-                                particleCount: 100, 
-                                spread: 70, 
-                                origin: { y: 0.6 } 
+                            confetti({
+                                particleCount: 100,
+                                spread: 70,
+                                origin: { y: 0.6 }
                             });
-                            
+                           
                             if (liffInitialized) {
                                 Swal.fire({
                                     title: 'แชร์ข้อมูลไปยัง LINE',
@@ -1162,12 +1149,12 @@
                             }
                         }
                     });
-                    
+                   
                     // Update tables after saving
                     fetchRecentData();
                     fetchAllData();
                     form.reset();
-                    
+                   
                 } else {
                     throw new Error(response.message || 'Failed to save document');
                 }
@@ -1183,12 +1170,18 @@
             }
         });
     }
-
     async function acknowledgeDocument(data) {
+        Swal.fire({
+            title: 'กำลังบันทึกข้อมูล',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
         const acknowledgeBtn = document.querySelector(`[data-id="${data.id}"]`);
         if (acknowledgeBtn) {
-            Swal.fire({title: "กำลังบันทึกรับทราบ"});
-            Swal.showLoading();
             acknowledgeBtn.classList.add('btn-loading');
             acknowledgeBtn.innerHTML = `
                 <span class="btn-text" style="opacity: 0;">กำลังรับทราบ...</span>
@@ -1196,7 +1189,7 @@
             `;
             acknowledgeBtn.disabled = true;
         }
-        
+       
         try {
             console.log('Acknowledging document with data:', data);
             console.log('LIFF status:', {
@@ -1204,27 +1197,27 @@
                 loggedIn: liff.isLoggedIn(),
                 context: liff.getContext()
             });
-            
+           
             let response;
-            
+           
             try {
                 const formData = new FormData();
                 formData.append('action', 'saveSignature');
                 formData.append('id', data.id.toString());
-                
+               
                 console.log('Attempting FormData request...');
                 response = await fetchWithRetry(GAS_URL, {
                     method: 'POST',
                     body: formData
                 }, 2, 1000);
-                
+               
             } catch (formDataError) {
                 console.log('FormData method failed, trying URLSearchParams:', formDataError);
-                
+               
                 const params = new URLSearchParams();
                 params.append('action', 'saveSignature');
                 params.append('id', data.id.toString());
-                
+               
                 response = await fetchWithRetry(GAS_URL, {
                     method: 'POST',
                     headers: {
@@ -1233,9 +1226,9 @@
                     body: params
                 }, 2, 1000);
             }
-            
+           
             console.log('Acknowledge response:', response);
-            
+           
             if (response && response.status === 'success') {
                 if (acknowledgeBtn) {
                     acknowledgeBtn.classList.remove('btn-loading');
@@ -1244,7 +1237,7 @@
                     acknowledgeBtn.classList.add('bg-gray-400');
                     acknowledgeBtn.disabled = true;
                 }
-                
+               
                 Swal.fire({
                     icon: 'success',
                     title: 'รับทราบสำเร็จ!',
@@ -1252,12 +1245,12 @@
                     confirmButtonText: 'ตกลง'
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        confetti({ 
-                            particleCount: 100, 
-                            spread: 70, 
-                            origin: { y: 0.6 } 
+                        confetti({
+                            particleCount: 100,
+                            spread: 70,
+                            origin: { y: 0.6 }
                         });
-                        
+                       
                         if (liffInitialized) {
                             Swal.fire({
                                 title: 'แชร์การรับทราบไปยัง LINE',
@@ -1278,20 +1271,20 @@
                                 }
                             });
                         }
-                        
+                       
                         // Update tables after acknowledgment
                         fetchRecentData();
                         fetchAllData();
                     }
                 });
-                
+               
             } else {
                 throw new Error(response?.message || 'เกิดข้อผิดพลาดในการรับทราบเอกสาร');
             }
-            
+           
         } catch (error) {
             console.error('Acknowledge document error:', error);
-            
+           
             if (acknowledgeBtn) {
                 acknowledgeBtn.classList.remove('btn-loading');
                 acknowledgeBtn.innerHTML = 'รับทราบ';
@@ -1299,9 +1292,9 @@
                 acknowledgeBtn.classList.add('bg-green-600', 'hover:bg-green-700');
                 acknowledgeBtn.disabled = false;
             }
-            
+           
             let errorMessage = 'ไม่สามารถอัปเดตสถานะได้';
-            
+           
             if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
                 errorMessage = 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบ:\n' +
                              '• การเชื่อมต่ออินเทอร์เน็ต\n' +
@@ -1310,7 +1303,7 @@
             } else if (error.message) {
                 errorMessage = error.message;
             }
-            
+           
             Swal.fire({
                 icon: 'error',
                 title: 'เกิดข้อผิดพลาด',
@@ -1320,7 +1313,6 @@
             });
         }
     }
-
     // Enhanced share function using shareTargetPicker
     async function shareToLine(data, isAcknowledgment = false) {
         if (!liffInitialized) {
@@ -1332,7 +1324,6 @@
             });
             return false;
         }
-
         try {
             // Prepare the message
             let textMessage;
@@ -1363,10 +1354,7 @@
                     `━━━━━━━━━━━━━━━━━━━━\n` +
                     `📱 ดูรายละเอียดเพิ่มเติม: ${LIFF_URL}`;
             }
-
-            Swal.fire({title: "กำลังแชร์ข้อมูล"});
-            Swal.showLoading();
-
+            showOverlayLoading(isAcknowledgment ? 'กำลังเตรียมข้อความรับทราบ...' : 'กำลังเตรียมข้อความ...');
             // Check if user is not logged in and in external browser
             if (!liff.isInClient() && !liff.isLoggedIn()) {
                 console.log('User not logged in and in external browser, redirecting to LINE login');
@@ -1385,7 +1373,6 @@
                 hideOverlayLoading();
                 return false;
             }
-
             // Check if shareTargetPicker is available
             if (liff.isApiAvailable("shareTargetPicker")) {
                 console.log('Attempting shareTargetPicker...');
@@ -1396,9 +1383,9 @@
                     }
                 ]);
                 console.log('shareTargetPicker result:', result);
-                
+               
                 hideOverlayLoading();
-                
+               
                 if (result) {
                     Swal.fire({
                         icon: 'success',
@@ -1421,13 +1408,11 @@
             } else {
                 throw new Error('ฟีเจอร์ shareTargetPicker ไม่สามารถใช้งานได้ กรุณาตรวจสอบเวอร์ชัน LINE หรือการตั้งค่า Scope');
             }
-
         } catch (error) {
             console.error('Share error:', error);
             hideOverlayLoading();
-
             let errorMessage = `ไม่สามารถส่งข้อมูลไปยัง LINE ได้`;
-            
+           
             if (error.message.includes('not supported') || error.message.includes('Unexpected API name')) {
                 errorMessage = 'ฟีเจอร์ shareTargetPicker ไม่รองรับในสภาพแวดล้อมนี้ กรุณาอัปเดต LINE หรือตรวจสอบการตั้งค่า';
             } else if (error.message.includes('permission')) {
@@ -1435,7 +1420,6 @@
             } else if (error.message.includes('network') || error.message.includes('fetch')) {
                 errorMessage = 'เกิดปัญหาการเชื่อมต่อ กรุณาตรวจสอบอินเทอร์เน็ต';
             }
-
             Swal.fire({
                 icon: 'error',
                 title: 'เกิดข้อผิดพลาด',
@@ -1446,20 +1430,17 @@
             return false;
         }
     }
-
     async function shareNewDocumentToLine(data) {
         return await shareToLine(data, false);
     }
-
     async function showDetailModal(id) {
         try {
-            Swal.fire({title: "กำลังเข้าถึงข้อมูล"});
-            Swal.showLoading();
-            
+            showOverlayLoading('กำลังโหลดรายละเอียด...');
+           
             const data = await fetchWithRetry(`${GAS_URL}?action=getDetail&id=${id}`, { method: 'GET' });
             const detailContent = document.getElementById('detail-content');
             const formattedDate = formatDate(data.date);
-            
+           
             detailContent.innerHTML = `
                 <div class="modal-row">
                     <div class="modal-row-item">
@@ -1500,12 +1481,12 @@
                 </div>
                 ${data.status === 'รอการรับทราบ' ? `
                     <div class="mt-4 flex justify-end">
-                        <button id="acknowledge-modal-btn" class="acknowledge-btn bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center relative" 
-                            data-id="${data.id}" 
-                            data-doc-number="${data.docNumber}" 
-                            data-subject="${data.subject}" 
-                            data-activity="${data.activity}" 
-                            data-responsible="${data.responsible}" 
+                        <button id="acknowledge-modal-btn" class="acknowledge-btn bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center relative"
+                            data-id="${data.id}"
+                            data-doc-number="${data.docNumber}"
+                            data-subject="${data.subject}"
+                            data-activity="${data.activity}"
+                            data-responsible="${data.responsible}"
                             data-file-link="${data.fileLink || ''}">
                             <span class="btn-text">รับทราบ</span>
                             <div class="btn-spinner" style="display: none;"></div>
@@ -1513,13 +1494,11 @@
                     </div>
                 ` : ''}
             `;
-            
+           
             // Attach event listener for acknowledge button in modal
             const acknowledgeBtn = document.getElementById('acknowledge-modal-btn');
             if (acknowledgeBtn) {
                 acknowledgeBtn.addEventListener('click', () => {
-                    Swal.fire({title: "กำลังเข้าถึงข้อมูล"});
-                    Swal.showLoading();
                     const acknowledgeData = {
                         id: acknowledgeBtn.dataset.id,
                         docNumber: acknowledgeBtn.dataset.docNumber,
@@ -1531,99 +1510,91 @@
                     acknowledgeDocument(acknowledgeData);
                 });
             }
-            
-            hideOverlayLoading();
+           
             document.getElementById('detail-modal').style.display = 'flex';
         } catch (error) {
             console.error('Show detail error:', error);
-            hideOverlayLoading();
             Swal.fire({
                 icon: 'error',
                 title: 'เกิดข้อผิดพลาด',
                 text: `ไม่สามารถโหลดรายละเอียดได้: ${error.message}`,
                 confirmButtonText: 'ตกลง'
             });
+        } finally {
+            hideOverlayLoading();
         }
     }
-
     function initModals() {
         const modal = document.getElementById('detail-modal');
         const closeBtn = document.getElementById('close-detail-modal');
         const closeDetailBtn = document.getElementById('close-detail-btn');
-        
+       
         closeBtn.addEventListener('click', () => {
             modal.style.display = 'none';
         });
-        
+       
         closeDetailBtn.addEventListener('click', () => {
             modal.style.display = 'none';
         });
-        
+       
         window.addEventListener('click', (event) => {
             if (event.target === modal) {
                 modal.style.display = 'none';
             }
         });
     }
-
     function initSearchAndFilter() {
         const searchInput = document.getElementById('search-input');
         const filterActivity = document.getElementById('filter-activity');
-        
+       
         let searchTimeout;
-        
+       
         searchInput.addEventListener('input', () => {
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => {
                 fetchAllData(filterActivity.value, searchInput.value);
             }, 300);
         });
-        
+       
         filterActivity.addEventListener('change', () => {
             fetchAllData(filterActivity.value, searchInput.value);
         });
     }
-
     function formatDate(dateString) {
         if (!dateString) return 'ไม่ระบุ';
-        
+       
         try {
             const date = new Date(dateString);
-            return date.toLocaleDateString('th-TH', { 
-                year: 'numeric', 
-                month: 'short', 
-                day: 'numeric' 
+            return date.toLocaleDateString('th-TH', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
             });
         } catch (error) {
             console.error('Date formatting error:', error);
             return dateString;
         }
     }
-
     function getStatusBadge(status) {
         if (!status) return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">ไม่ระบุ</span>';
-        
+       
         const isAcknowledged = status === 'รับทราบแล้ว';
         const colorClass = isAcknowledged ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
-        
+       
         return `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${colorClass}">${status}</span>`;
     }
-
     window.addEventListener('unhandledrejection', function(event) {
         console.error('Unhandled promise rejection:', event.reason);
         event.preventDefault();
     });
-
     window.addEventListener('error', function(event) {
         console.error('Global error:', event.error);
     });
-
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
             console.log('Service Worker support detected');
         });
     }
-
     window.addEventListener('online', function() {
         console.log('Connection restored');
         Swal.fire({
@@ -1636,7 +1607,6 @@
             timer: 3000
         });
     });
-
     window.addEventListener('offline', function() {
         console.log('Connection lost');
         Swal.fire({
@@ -1649,13 +1619,11 @@
             timer: 3000
         });
     });
-
     document.addEventListener('visibilitychange', function() {
         if (!document.hidden) {
             console.log('Page became visible');
         }
     });
-
     try {
         console.log('Application initialized successfully');
     } catch (error) {
